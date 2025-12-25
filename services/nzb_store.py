@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+import hashlib
+import os
+import random
+import re
+from typing import Optional
+
+from nntp_client import NNTPClient
+from services.db import get_nzb_db, get_nzb_db_readonly, init_nzb_db
+from services.ingest import get_env_bool, load_env
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NZB_DIR = os.path.join(BASE_DIR, "nzbs")
+
+
+def ensure_nzb_dir() -> None:
+    os.makedirs(NZB_DIR, exist_ok=True)
+
+
+def sanitize_filename(name: str) -> str:
+    name = (name or "nzb").strip()
+    name = re.sub(r"[^\w\s.-]", "_", name, flags=re.ASCII)
+    name = re.sub(r"\s+", "_", name).strip("_")
+    return name or "nzb"
+
+
+def build_nzb_key(seed: str) -> str:
+    return hashlib.sha1(seed.encode("utf-8", errors="ignore")).hexdigest()
+
+
+def find_nzb_by_release(release_key: str) -> Optional[str]:
+    if not release_key:
+        return None
+    conn = get_nzb_db_readonly()
+    if conn is None:
+        return None
+    row = conn.execute("SELECT key FROM nzbs WHERE release_key = ?", (release_key,)).fetchone()
+    conn.close()
+    return row["key"] if row else None
+
+
+def store_nzb_payload(
+    *,
+    name: str,
+    payload: bytes,
+    source: str,
+    group_name: str | None = None,
+    poster: str | None = None,
+    release_key: str | None = None,
+    nzb_source_subject: str | None = None,
+    nzb_article: int | None = None,
+    nzb_message_id: str | None = None,
+) -> tuple[str, str]:
+    ensure_nzb_dir()
+    seed = "|".join(
+        [
+            source or "",
+            release_key or "",
+            nzb_message_id or "",
+            name or "",
+            group_name or "",
+        ]
+    )
+    key = build_nzb_key(seed)
+
+    conn = get_nzb_db()
+    init_nzb_db(conn)
+    existing = conn.execute("SELECT key, path FROM nzbs WHERE key = ?", (key,)).fetchone()
+    if existing:
+        conn.close()
+        return existing["key"], existing["path"]
+
+    filename = sanitize_filename(name)
+    if not filename.lower().endswith(".nzb"):
+        filename = f"{filename}.nzb"
+    path = os.path.join(NZB_DIR, f"{key[:8]}_{filename}")
+    with open(path, "wb") as handle:
+        handle.write(payload)
+
+    conn.execute(
+        """
+        INSERT INTO nzbs(
+            key, name, source, group_name, poster, release_key,
+            nzb_source_subject, nzb_article, nzb_message_id, bytes, path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            key,
+            name,
+            source,
+            group_name,
+            poster,
+            release_key,
+            nzb_source_subject,
+            nzb_article,
+            nzb_message_id,
+            len(payload),
+            path,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return key, path
+
+
+def store_nzb_invalid(
+    *,
+    name: str,
+    source: str,
+    reason: str,
+    release_key: str | None = None,
+) -> None:
+    conn = get_nzb_db()
+    init_nzb_db(conn)
+    key = build_nzb_key("|".join([source or "", release_key or "", name or ""]))
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO nzb_invalid(key, name, source, release_key, reason)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (key, name, source, release_key, reason),
+    )
+    conn.commit()
+    conn.close()
+
+
+def _connect_nntp() -> NNTPClient | None:
+    load_env()
+    host = os.environ.get("NNTP_HOST")
+    if not host:
+        return None
+    port = int(os.environ.get("NNTP_PORT", "119"))
+    use_ssl = get_env_bool("NNTP_SSL")
+    user = os.environ.get("NNTP_USER")
+    password = os.environ.get("NNTP_PASS")
+
+    client = NNTPClient(host, port, use_ssl=use_ssl)
+    try:
+        client.connect()
+        client.reader_mode()
+        client.auth(user, password)
+    except Exception:
+        try:
+            client.quit()
+        except Exception:
+            pass
+        raise
+    return client
+
+
+def verify_message_ids(message_ids: list[str]) -> tuple[bool, str | None]:
+    if not message_ids:
+        return False, "no segments"
+
+    sample = int(os.environ.get("TRICERAPOST_NZB_VERIFY_SAMPLE", "0"))
+    targets = message_ids
+    if sample > 0 and len(message_ids) > sample:
+        head = message_ids[:1]
+        tail = message_ids[-1:]
+        middle = message_ids[1:-1]
+        pick = random.sample(middle, min(sample - len(head) - len(tail), len(middle))) if middle else []
+        targets = list(dict.fromkeys(head + pick + tail))
+
+    try:
+        client = _connect_nntp()
+        if client is None:
+            return False, "NNTP_HOST not set"
+        for msg_id in targets:
+            msg = msg_id.strip()
+            if not msg:
+                return False, "missing message-id"
+            if not msg.startswith("<"):
+                msg = f"<{msg}>"
+            client.stat(msg)
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+    finally:
+        try:
+            if "client" in locals() and client is not None:
+                client.quit()
+        except Exception:
+            pass

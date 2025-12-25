@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TriceraPost | Binaries</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>TriceraPost</h1>
+      <nav>
+        <a href="/">Binaries</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h2>Binary discoveries</h2>
+          <p>Complete releases and NZB files ready for your NZB client.</p>
+        </div>
+      </section>
+
+      <section class="dual-grid">
+        <div class="column">
+          <h3>Things we found</h3>
+          <div class="release-grid" id="release-list"></div>
+          <div class="status" id="release-status">Loading releases...</div>
+          <div class="pagination" id="release-pagination">
+            <button id="release-prev">Prev</button>
+            <span id="release-info"></span>
+            <button id="release-next">Next</button>
+          </div>
+        </div>
+        <div class="column">
+          <h3>NZBs created</h3>
+          <div class="release-grid" id="nzb-list"></div>
+          <div class="status" id="nzb-status">Loading NZBs...</div>
+          <div class="pagination" id="nzb-pagination">
+            <button id="nzb-prev">Prev</button>
+            <span id="nzb-info"></span>
+            <button id="nzb-next">Next</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/app.js"></script>
+  </body>
+</html>
