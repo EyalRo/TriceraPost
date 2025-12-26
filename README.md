@@ -10,13 +10,7 @@ Private, self-hosted Usenet indexer that scans binary groups, discovers releases
 ## Install (Standalone)
 
 1. Copy `.env.example` to `.env` and fill in values.
-2. (Optional) List groups to JSON:
-
-```
-python3 list_groups.py --output groups.json
-```
-
-3. Start the local web UI:
+2. Start the local web UI:
 
 ```
 python3 server.py
@@ -42,7 +36,7 @@ python3 tricerapost.py
 3. Open DSM Package Center and choose Manual Install.
 4. Select `synology/build/TriceraPost.spk`.
 
-After install, visit `http://<nas-ip>:8080/settings` to set NNTP credentials.
+After install, launch TriceraPost from the DSM app menu.
 
 ## Swagger
 
