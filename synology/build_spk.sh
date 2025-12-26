@@ -12,6 +12,8 @@ rm -rf "${PKG_DIR}" "${PAYLOAD_DIR}" "${SPK_FILE}"
 mkdir -p "${PKG_DIR}" "${PAYLOAD_DIR}/app" "${PAYLOAD_DIR}/port_conf"
 
 cp "${ROOT_DIR}/synology/INFO" "${PKG_DIR}/INFO"
+cp "${ROOT_DIR}/synology/PACKAGE_ICON.PNG" "${PKG_DIR}/PACKAGE_ICON.PNG"
+cp "${ROOT_DIR}/synology/PACKAGE_ICON_256.PNG" "${PKG_DIR}/PACKAGE_ICON_256.PNG"
 mkdir -p "${PKG_DIR}/conf" "${PKG_DIR}/scripts"
 cp -R "${ROOT_DIR}/synology/conf/." "${PKG_DIR}/conf"
 cp -R "${ROOT_DIR}/synology/scripts/." "${PKG_DIR}/scripts"
@@ -29,6 +31,6 @@ APP_EXCLUDES="--exclude=.git --exclude=__pycache__ --exclude=.env --exclude=.env
 rm -rf "${PAYLOAD_DIR}/app/synology/build"
 
  tar --format=ustar -C "${PAYLOAD_DIR}" -czf "${PKG_DIR}/package.tgz" .
- tar --format=ustar -C "${PKG_DIR}" -cf "${SPK_FILE}" .
+ tar --format=ustar -C "${PKG_DIR}" -cf "${SPK_FILE}" INFO PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG conf scripts package.tgz
 
  echo "Built ${SPK_FILE}"
