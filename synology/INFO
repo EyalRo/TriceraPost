@@ -1,4 +1,4 @@
-package="TriceraPost"
+package="tricerapost"
 version="0.1.0-0001"
 os_min_ver="7.0-40000"
 arch="noarch"

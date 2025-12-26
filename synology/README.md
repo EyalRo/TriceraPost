@@ -28,4 +28,4 @@ Visit `http://<nas-ip>:8080/settings` to set NNTP credentials after install.
 ## Notes
 
 - This package expects DSM's `Python3` package to be installed.
-- If you change the service port, update `synology/port_conf/TriceraPost.sc`.
+- If you change the service port, update `synology/port_conf/tricerapost.sc`.

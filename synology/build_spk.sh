@@ -2,7 +2,7 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PKG_NAME="TriceraPost"
+PKG_NAME="tricerapost"
 BUILD_DIR="${ROOT_DIR}/synology/build"
 PKG_DIR="${BUILD_DIR}/${PKG_NAME}"
 PAYLOAD_DIR="${BUILD_DIR}/payload"
@@ -16,7 +16,7 @@ mkdir -p "${PKG_DIR}/conf" "${PKG_DIR}/scripts"
 cp -R "${ROOT_DIR}/synology/conf/." "${PKG_DIR}/conf"
 cp -R "${ROOT_DIR}/synology/scripts/." "${PKG_DIR}/scripts"
 
-cp "${ROOT_DIR}/synology/port_conf/TriceraPost.sc" "${PAYLOAD_DIR}/port_conf/TriceraPost.sc"
+cp "${ROOT_DIR}/synology/port_conf/tricerapost.sc" "${PAYLOAD_DIR}/port_conf/tricerapost.sc"
 
 APP_EXCLUDES="--exclude=.git --exclude=__pycache__ --exclude=.env --exclude=.env.* \
 --exclude=data --exclude=nzbs --exclude=nzb_downloads --exclude=downloads \

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PKG_NAME="TriceraPost"
+PKG_NAME="tricerapost"
 PKG_DIR="${SYNOPKG_PKGDEST}"
 PID_FILE="${PKG_DIR}/var/tricerapost.pid"
 LOG_FILE="${PKG_DIR}/var/tricerapost.log"
