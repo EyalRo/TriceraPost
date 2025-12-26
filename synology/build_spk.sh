@@ -28,7 +28,7 @@ APP_EXCLUDES="--exclude=.git --exclude=__pycache__ --exclude=.env --exclude=.env
 
 rm -rf "${PAYLOAD_DIR}/app/synology/build"
 
- tar -C "${PAYLOAD_DIR}" -czf "${PKG_DIR}/package.tgz" .
- tar -C "${PKG_DIR}" -cf "${SPK_FILE}" .
+ tar --format=ustar -C "${PAYLOAD_DIR}" -czf "${PKG_DIR}/package.tgz" .
+ tar --format=ustar -C "${PKG_DIR}" -cf "${SPK_FILE}" .
 
  echo "Built ${SPK_FILE}"
