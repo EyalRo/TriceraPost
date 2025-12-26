@@ -88,6 +88,17 @@ button.primary:hover {
   box-shadow: 0 12px 24px rgba(212, 91, 43, 0.35);
 }
 
+button.danger {
+  background: var(--accent-deep);
+  color: white;
+  box-shadow: 0 8px 18px rgba(142, 44, 10, 0.3);
+}
+
+button.danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(142, 44, 10, 0.35);
+}
+
 section {
   margin-top: 28px;
 }

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 from services.release_utils import NZB_HINT_RE, decode_yenc
 
 
-def build_nzb_payload(lines: list[str]) -> bytes | None:
+def build_nzb_payload(lines: list[str]) -> Optional[bytes]:
     text = "\n".join(lines)
     if NZB_HINT_RE.search(text):
         return text.encode("utf-8", errors="ignore")
@@ -41,7 +42,7 @@ def parse_nzb_segments(payload: bytes) -> list[dict]:
 def build_nzb_xml(
     *,
     name: str,
-    poster: str | None,
+    poster: Optional[str],
     groups: list[str],
     segments: list[dict],
 ) -> bytes:

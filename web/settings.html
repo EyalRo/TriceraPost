@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TriceraPost | Settings</title>
-    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="assets/style.css" />
   </head>
   <body>
     <header>
       <h1>TriceraPost</h1>
       <nav>
-        <a href="/">Binaries</a>
-        <a href="/settings">Settings</a>
+        <a href="./">Binaries</a>
+        <a href="settings">Settings</a>
       </nav>
     </header>
 
@@ -68,14 +68,26 @@
             </label>
           </div>
 
+          <div class="settings-row">
+            <label class="checkbox">
+              <input type="checkbox" id="nzb-save" />
+              Save NZBs to disk
+            </label>
+            <label>
+              NZB output directory
+              <input type="text" id="nzb-dir" placeholder="/volume1/nzbs" />
+            </label>
+          </div>
+
           <div class="actions">
             <button type="submit" class="primary">Save settings</button>
+            <button type="button" id="clear-db" class="danger">Clear database</button>
             <span class="status" id="save-status"></span>
           </div>
         </form>
       </section>
     </main>
 
-    <script src="/assets/settings.js"></script>
+    <script src="assets/settings.js"></script>
   </body>
 </html>

@@ -7,6 +7,14 @@ const state = {
   nzbPageSize: 20,
 };
 
+function basePath() {
+  const parts = window.location.pathname.split("/");
+  if (parts.length > 1 && parts[1] === "tricerapost") {
+    return "/tricerapost";
+  }
+  return "";
+}
+
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -165,7 +173,8 @@ function renderNzbs(list) {
 
     const link = document.createElement("a");
     link.className = "nzb-link";
-    link.href = `/api/nzb/file?key=${encodeURIComponent(item.key)}`;
+    const prefix = basePath();
+    link.href = `${prefix}/api/nzb/file?key=${encodeURIComponent(item.key)}`;
     link.textContent = "Download NZB";
 
     card.append(title, metaRow, groupLine, link);
@@ -175,7 +184,8 @@ function renderNzbs(list) {
 
 async function loadReleases() {
   try {
-    state.releases = await fetchJson("/api/releases");
+    const prefix = basePath();
+    state.releases = await fetchJson(`${prefix}/api/releases`);
     renderReleases(state.releases);
   } catch (err) {
     const status = qs("release-status");
@@ -185,7 +195,8 @@ async function loadReleases() {
 
 async function loadNzbs() {
   try {
-    state.nzbs = await fetchJson("/api/nzbs");
+    const prefix = basePath();
+    state.nzbs = await fetchJson(`${prefix}/api/nzbs`);
     renderNzbs(state.nzbs);
   } catch (err) {
     const status = qs("nzb-status");
@@ -221,6 +232,22 @@ function initPage() {
     nzbNext.addEventListener("click", () => {
       state.nzbPage += 1;
       renderNzbs(state.nzbs);
+    });
+  }
+
+  const saveAllBtn = qs("save-all-nzbs");
+  if (saveAllBtn) {
+    saveAllBtn.addEventListener("click", async () => {
+      const status = qs("save-all-status");
+      if (status) status.textContent = "Saving...";
+      const prefix = basePath();
+      try {
+        const result = await fetchJson(`${prefix}/api/nzb/save_all`, { method: "POST" });
+        if (status) status.textContent = `Saved ${result.saved || 0} NZBs.`;
+        await loadNzbs();
+      } catch (err) {
+        if (status) status.textContent = `Save failed: ${err.message}`;
+      }
     });
   }
 

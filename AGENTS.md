@@ -27,12 +27,14 @@
   - `curl -s http://127.0.0.1:8080/api/releases`
   - `curl -s http://127.0.0.1:8080/api/releases/raw`
   - `curl -s http://127.0.0.1:8080/api/nzbs`
+  - `curl -s http://127.0.0.1:8080/api/status`
   - `curl -s http://127.0.0.1:8080/api/nzb/file?key=...`
 
 ## Local Env
 
 - `.env` holds NNTP credentials and defaults.
 - `.env.example` documents required variables.
+- `TRICERAPOST_SAVE_NZBS=1` and `TRICERAPOST_NZB_DIR=/path/to/nzbs` control disk writes for NZB payloads.
 
 ## Commands
 

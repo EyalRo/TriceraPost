@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TriceraPost | Binaries</title>
-    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="assets/style.css" />
   </head>
   <body>
     <header>
       <h1>TriceraPost</h1>
       <nav>
-        <a href="/">Binaries</a>
-        <a href="/settings">Settings</a>
+        <a href="./">Binaries</a>
+        <a href="settings">Settings</a>
       </nav>
     </header>
 
@@ -20,6 +20,10 @@
         <div>
           <h2>Binary discoveries</h2>
           <p>Complete releases and NZB files ready for your NZB client.</p>
+          <div class="actions">
+            <button id="save-all-nzbs">Save all NZBs to disk</button>
+            <span class="status" id="save-all-status"></span>
+          </div>
         </div>
       </section>
 
@@ -47,6 +51,6 @@
       </section>
     </main>
 
-    <script src="/assets/app.js"></script>
+    <script src="assets/app.js"></script>
   </body>
 </html>

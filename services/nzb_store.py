@@ -3,6 +3,7 @@ import hashlib
 import os
 import random
 import re
+import sqlite3
 from typing import Optional
 
 from nntp_client import NNTPClient
@@ -11,11 +12,24 @@ from services.ingest import load_env
 from services.settings import get_bool_setting, get_int_setting, get_setting
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NZB_DIR = os.path.join(BASE_DIR, "nzbs")
+DEFAULT_NZB_DIR = os.path.join(BASE_DIR, "nzbs")
 
 
-def ensure_nzb_dir() -> None:
-    os.makedirs(NZB_DIR, exist_ok=True)
+def _nzb_dir() -> str:
+    override = get_setting("TRICERAPOST_NZB_DIR")
+    if override:
+        return override
+    return DEFAULT_NZB_DIR
+
+
+def _auto_save_enabled() -> bool:
+    return get_bool_setting("TRICERAPOST_SAVE_NZBS", True)
+
+
+def ensure_nzb_dir() -> str:
+    path = _nzb_dir()
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 def sanitize_filename(name: str) -> str:
@@ -45,14 +59,13 @@ def store_nzb_payload(
     name: str,
     payload: bytes,
     source: str,
-    group_name: str | None = None,
-    poster: str | None = None,
-    release_key: str | None = None,
-    nzb_source_subject: str | None = None,
-    nzb_article: int | None = None,
-    nzb_message_id: str | None = None,
+    group_name: Optional[str] = None,
+    poster: Optional[str] = None,
+    release_key: Optional[str] = None,
+    nzb_source_subject: Optional[str] = None,
+    nzb_article: Optional[int] = None,
+    nzb_message_id: Optional[str] = None,
 ) -> tuple[str, str]:
-    ensure_nzb_dir()
     seed = "|".join(
         [
             source or "",
@@ -74,16 +87,14 @@ def store_nzb_payload(
     filename = sanitize_filename(name)
     if not filename.lower().endswith(".nzb"):
         filename = f"{filename}.nzb"
-    path = os.path.join(NZB_DIR, f"{key[:8]}_{filename}")
-    with open(path, "wb") as handle:
-        handle.write(payload)
+    path = ""
 
     conn.execute(
         """
         INSERT INTO nzbs(
             key, name, source, group_name, poster, release_key,
-            nzb_source_subject, nzb_article, nzb_message_id, bytes, path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            nzb_source_subject, nzb_article, nzb_message_id, bytes, path, payload
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             key,
@@ -97,10 +108,17 @@ def store_nzb_payload(
             nzb_message_id,
             len(payload),
             path,
+            sqlite3.Binary(payload),
         ),
     )
     conn.commit()
     conn.close()
+
+    if _auto_save_enabled():
+        saved_path = save_nzb_to_disk(key)
+        if saved_path:
+            _update_nzb_path(key, saved_path)
+            path = saved_path
     return key, path
 
 
@@ -109,23 +127,74 @@ def store_nzb_invalid(
     name: str,
     source: str,
     reason: str,
-    release_key: str | None = None,
+    release_key: Optional[str] = None,
+    payload: Optional[bytes] = None,
 ) -> None:
     conn = get_nzb_db()
     init_nzb_db(conn)
     key = build_nzb_key("|".join([source or "", release_key or "", name or ""]))
     conn.execute(
         """
-        INSERT OR REPLACE INTO nzb_invalid(key, name, source, release_key, reason)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO nzb_invalid(key, name, source, release_key, reason, payload)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (key, name, source, release_key, reason),
+        (key, name, source, release_key, reason, sqlite3.Binary(payload) if payload else None),
     )
     conn.commit()
     conn.close()
 
 
-def _connect_nntp() -> NNTPClient | None:
+def _update_nzb_path(key: str, path: str) -> None:
+    conn = get_nzb_db()
+    init_nzb_db(conn)
+    conn.execute("UPDATE nzbs SET path = ? WHERE key = ?", (path, key))
+    conn.commit()
+    conn.close()
+
+
+def save_nzb_to_disk(key: str, directory: Optional[str] = None) -> Optional[str]:
+    conn = get_nzb_db_readonly()
+    if conn is None:
+        return None
+    row = conn.execute("SELECT name, payload FROM nzbs WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    payload = row["payload"]
+    if payload is None:
+        return None
+
+    filename = sanitize_filename(row["name"] or "nzb")
+    if not filename.lower().endswith(".nzb"):
+        filename = f"{filename}.nzb"
+    target_dir = directory or _nzb_dir()
+    os.makedirs(target_dir, exist_ok=True)
+    path = os.path.join(target_dir, f"{key[:8]}_{filename}")
+    with open(path, "wb") as handle:
+        handle.write(payload)
+    return path
+
+
+def save_all_nzbs_to_disk(directory: Optional[str] = None) -> int:
+    conn = get_nzb_db_readonly()
+    if conn is None:
+        return 0
+    rows = conn.execute("SELECT key, path FROM nzbs").fetchall()
+    conn.close()
+    saved = 0
+    for row in rows:
+        key = row["key"]
+        path = row["path"] or ""
+        if path and os.path.exists(path):
+            continue
+        saved_path = save_nzb_to_disk(key, directory)
+        if saved_path:
+            _update_nzb_path(key, saved_path)
+            saved += 1
+    return saved
+
+
+def _connect_nntp() -> Optional[NNTPClient]:
     load_env()
     host = get_setting("NNTP_HOST")
     if not host:
@@ -149,7 +218,7 @@ def _connect_nntp() -> NNTPClient | None:
     return client
 
 
-def verify_message_ids(message_ids: list[str]) -> tuple[bool, str | None]:
+def verify_message_ids(message_ids: list[str]) -> tuple[bool, Optional[str]]:
     if not message_ids:
         return False, "no segments"
 

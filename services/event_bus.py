@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 import time
-from typing import Iterator
+from typing import Iterator, Optional
 
 
 def _bool_env(key: str) -> bool:
@@ -19,7 +19,7 @@ def _events_base_dir() -> str:
 EVENTS_DB_PATH = os.environ.get("TRICERAPOST_EVENTS_DB", os.path.join(_events_base_dir(), "events.db"))
 
 
-def get_event_db(path: str | None = None) -> sqlite3.Connection:
+def get_event_db(path: Optional[str] = None) -> sqlite3.Connection:
     db_path = path or EVENTS_DB_PATH
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     if db_path.startswith("file:"):

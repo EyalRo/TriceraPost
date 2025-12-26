@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sqlite3
+from typing import Optional
 
 def _bool_env(key: str) -> bool:
     return os.environ.get(key, "").strip().lower() in {"1", "true", "yes", "y"}
@@ -34,7 +35,7 @@ def _connect(path: str) -> sqlite3.Connection:
     return conn
 
 
-def _connect_readonly(path: str) -> sqlite3.Connection | None:
+def _connect_readonly(path: str) -> Optional[sqlite3.Connection]:
     if not os.path.exists(path):
         return None
     if _bool_env("TRICERAPOST_DB_IN_MEMORY"):
@@ -52,41 +53,41 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA busy_timeout = 30000")
 
 
-def get_state_db(path: str | None = None) -> sqlite3.Connection:
+def get_state_db(path: Optional[str] = None) -> sqlite3.Connection:
     return _connect(path or STATE_DB_PATH)
 
 
-def get_ingest_db(path: str | None = None) -> sqlite3.Connection:
+def get_ingest_db(path: Optional[str] = None) -> sqlite3.Connection:
     return _connect(path or INGEST_DB_PATH)
 
 
-def get_releases_db(path: str | None = None) -> sqlite3.Connection:
+def get_releases_db(path: Optional[str] = None) -> sqlite3.Connection:
     return _connect(path or RELEASES_DB_PATH)
 
 
-def get_complete_db(path: str | None = None) -> sqlite3.Connection:
+def get_complete_db(path: Optional[str] = None) -> sqlite3.Connection:
     return _connect(path or COMPLETE_DB_PATH)
 
-def get_nzb_db(path: str | None = None) -> sqlite3.Connection:
+def get_nzb_db(path: Optional[str] = None) -> sqlite3.Connection:
     return _connect(path or NZB_DB_PATH)
 
 
-def get_state_db_readonly(path: str | None = None) -> sqlite3.Connection | None:
+def get_state_db_readonly(path: Optional[str] = None) -> Optional[sqlite3.Connection]:
     return _connect_readonly(path or STATE_DB_PATH)
 
 
-def get_ingest_db_readonly(path: str | None = None) -> sqlite3.Connection | None:
+def get_ingest_db_readonly(path: Optional[str] = None) -> Optional[sqlite3.Connection]:
     return _connect_readonly(path or INGEST_DB_PATH)
 
 
-def get_releases_db_readonly(path: str | None = None) -> sqlite3.Connection | None:
+def get_releases_db_readonly(path: Optional[str] = None) -> Optional[sqlite3.Connection]:
     return _connect_readonly(path or RELEASES_DB_PATH)
 
 
-def get_complete_db_readonly(path: str | None = None) -> sqlite3.Connection | None:
+def get_complete_db_readonly(path: Optional[str] = None) -> Optional[sqlite3.Connection]:
     return _connect_readonly(path or COMPLETE_DB_PATH)
 
-def get_nzb_db_readonly(path: str | None = None) -> sqlite3.Connection | None:
+def get_nzb_db_readonly(path: Optional[str] = None) -> Optional[sqlite3.Connection]:
     return _connect_readonly(path or NZB_DB_PATH)
 
 
@@ -236,6 +237,12 @@ def init_nzb_db(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(nzbs)").fetchall()}
+    if "payload" not in cols:
+        conn.execute("ALTER TABLE nzbs ADD COLUMN payload BLOB")
+    cols_invalid = {row[1] for row in conn.execute("PRAGMA table_info(nzb_invalid)").fetchall()}
+    if "payload" not in cols_invalid:
+        conn.execute("ALTER TABLE nzb_invalid ADD COLUMN payload BLOB")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_nzbs_release_key ON nzbs(release_key)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_nzbs_source ON nzbs(source)")
     conn.commit()

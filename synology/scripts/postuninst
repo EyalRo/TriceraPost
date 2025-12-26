@@ -1,2 +1,8 @@
 #!/bin/sh
+
+PKG_NAME="tricerapost"
+WEBMAN_DIR="/usr/syno/synoman/webman/3rdparty"
+
+rm -f "${WEBMAN_DIR}/${PKG_NAME}"
+
 exit 0

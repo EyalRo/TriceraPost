@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import re
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 PART_RE = re.compile(r"(?:\(|\[)?\s*(\d{1,4})\s*/\s*(\d{1,4})\s*(?:\)|\])")
 PART_FILE_RE = re.compile(r"\.part\d{1,4}\.[^\s\"']+", re.IGNORECASE)
@@ -24,7 +25,7 @@ def normalize_subject(subject: str) -> str:
     return subject.strip(" -_[]()\t ")
 
 
-def extract_filename(subject: str) -> str | None:
+def extract_filename(subject: str) -> Optional[str]:
     match = FILENAME_RE.search(subject)
     if match:
         return match.group(1)

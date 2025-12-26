@@ -10,6 +10,6 @@ description="Private, self-hosted Usenet indexer for NNTP binaries."
 arch="noarch"
 maintainer="TriceraPost"
 startable="yes"
-install_dep_packages="Python3"
+install_dep_packages="Python3.9"
 
 pkg_dump_info

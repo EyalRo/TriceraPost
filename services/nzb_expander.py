@@ -19,21 +19,26 @@ from services.nzb_utils import build_nzb_payload, parse_nzb_segments
 SERVICE_NAME = "nzb_expander"
 
 
+def wait_for_settings(poll_seconds: float) -> tuple[str, int, bool, str, str]:
+    while True:
+        load_env()
+        host = get_setting("NNTP_HOST")
+        if host:
+            port = get_int_setting("NNTP_PORT", 119)
+            use_ssl = get_bool_setting("NNTP_SSL")
+            user = get_setting("NNTP_USER")
+            password = get_setting("NNTP_PASS")
+            return host, port, use_ssl, user, password
+        print("NNTP_HOST not set in settings or .env; waiting for settings...")
+        time.sleep(poll_seconds)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Worker to expand NZB files.")
     parser.add_argument("--poll", type=float, default=1.0)
     args = parser.parse_args()
 
-    load_env()
-    host = get_setting("NNTP_HOST")
-    port = get_int_setting("NNTP_PORT", 119)
-    use_ssl = get_bool_setting("NNTP_SSL")
-    user = get_setting("NNTP_USER")
-    password = get_setting("NNTP_PASS")
-
-    if not host:
-        print("NNTP_HOST not set in settings or .env")
-        return 1
+    host, port, use_ssl, user, password = wait_for_settings(args.poll)
 
     client = NNTPClient(host, port, use_ssl=use_ssl)
     client.connect()
@@ -109,6 +114,7 @@ def main() -> int:
                             name=subject or "nzb",
                             source="found",
                             reason=reason or "verification failed",
+                            payload=raw_payload,
                         )
                 for nzb_file in nzb_files:
                     record = {

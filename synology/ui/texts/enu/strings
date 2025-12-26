@@ -1,0 +1,4 @@
+
+[app]
+description	=	"TriceraPost"
+str_meta_desc	=	"Private, self-hosted Usenet indexer."

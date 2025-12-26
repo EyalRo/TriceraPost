@@ -2,7 +2,7 @@
 import argparse
 import json
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from services.db import (
     get_complete_db,
@@ -90,7 +90,7 @@ def load_releases() -> List[Dict[str, object]]:
 def parse_metadata(name: str) -> Dict[str, object]:
     tokens = re.split(r"[\s._-]+", name)
 
-    def find_token(regex: re.Pattern) -> str | None:
+    def find_token(regex: re.Pattern) -> Optional[str]:
         match = regex.search(name)
         return match.group(1) if match else None
 
@@ -176,7 +176,7 @@ def filename_candidates(subjects: list[str]) -> list[str]:
     return [normalize_filename(c) for c in candidates]
 
 
-def pick_filename(subjects: list[str]) -> str | None:
+def pick_filename(subjects: list[str]) -> Optional[str]:
     candidates = filename_candidates(subjects)
     if not candidates:
         return None

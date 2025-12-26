@@ -1,6 +1,21 @@
 #!/bin/sh
 
-PKG_DIR="${SYNOPKG_PKGDEST}"
+PKG_NAME="tricerapost"
+PKG_DIR="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+WEBMAN_DIR="/usr/syno/synoman/webman/3rdparty"
+UI_DIR="${PKG_DIR}/ui"
+
 mkdir -p "${PKG_DIR}/var" "${PKG_DIR}/var/data"
+
+if [ -d "${UI_DIR}" ]; then
+    mkdir -p "${WEBMAN_DIR}"
+    ln -sfn "${UI_DIR}" "${WEBMAN_DIR}/${PKG_NAME}"
+fi
+
+chmod 755 "${PKG_DIR}"
+find "${PKG_DIR}/app" -type d -exec chmod 755 {} + 2>/dev/null || true
+find "${PKG_DIR}/app" -type f -exec chmod 644 {} + 2>/dev/null || true
+find "${PKG_DIR}/ui" -type d -exec chmod 755 {} + 2>/dev/null || true
+find "${PKG_DIR}/ui" -type f -exec chmod 644 {} + 2>/dev/null || true
 
 exit 0

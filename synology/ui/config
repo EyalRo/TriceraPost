@@ -1,0 +1,23 @@
+{
+  "tricerapost.js": {
+    "SYNO.PKG.TriceraPost.Instance": {
+      "type": "app",
+      "title": "TriceraPost",
+      "desc": "app:description",
+      "icon": "images/TriceraPost_{0}.png",
+      "texts": "texts",
+      "allowMultiInstance": false,
+      "appWindow": "SYNO.PKG.TriceraPost.MainWindow",
+      "depend": [
+        "SYNO.PKG.TriceraPost.MainWindow"
+      ]
+    },
+    "SYNO.PKG.TriceraPost.MainWindow": {
+      "type": "lib",
+      "title": "TriceraPost",
+      "icon": "images/TriceraPost_{0}.png",
+      "texts": "texts",
+      "depend": []
+    }
+  }
+}

@@ -2,30 +2,53 @@
 
 PKG_NAME="tricerapost"
 PKG_DIR="${SYNOPKG_PKGDEST}"
-PID_FILE="${PKG_DIR}/var/tricerapost.pid"
-LOG_FILE="${PKG_DIR}/var/tricerapost.log"
-PYTHON_BIN="/usr/bin/python3"
+PKG_VAR="/var/packages/${PKG_NAME}/var"
+PID_FILE="${PKG_VAR}/tricerapost.pid"
+LOG_FILE="${PKG_VAR}/tricerapost.log"
+PYTHON_HOME="/volume1/@appstore/Python3.9/usr"
+PYTHON_BIN="${PYTHON_HOME}/bin/python3.9"
+if [ -x "${PYTHON_BIN}" ]; then
+    export PYTHONHOME="${PYTHON_HOME}"
+else
+    PYTHON_BIN="/usr/bin/python3"
+fi
 APP_MAIN="${PKG_DIR}/app/tricerapost.py"
 
 export PYTHONPATH="${PKG_DIR}/app"
 export TRICERAPOST_DB_IN_MEMORY="0"
-export TRICERAPOST_DB_DIR="${PKG_DIR}/var/data"
-export TRICERAPOST_SETTINGS_PATH="${PKG_DIR}/var/settings.json"
+export TRICERAPOST_DB_DIR="${PKG_VAR}/data"
+export TRICERAPOST_SETTINGS_PATH="${PKG_VAR}/settings.json"
+export TRICERAPOST_BIND_HOST="0.0.0.0"
 
 start_daemon() {
-    mkdir -p "${PKG_DIR}/var" "${PKG_DIR}/var/data"
+    mkdir -p "${PKG_VAR}" "${PKG_VAR}/data"
     if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
         return 0
     fi
-    start-stop-daemon --start --background --make-pidfile --pidfile "${PID_FILE}" \
-        --chdir "${PKG_DIR}/app" --exec "${PYTHON_BIN}" -- "${APP_MAIN}" >> "${LOG_FILE}" 2>&1
+    nohup "${PYTHON_BIN}" "${APP_MAIN}" >> "${LOG_FILE}" 2>&1 &
+    echo $! > "${PID_FILE}"
+    sleep 1
+    if ! kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        return 1
+    fi
 }
 
 stop_daemon() {
     if [ ! -f "${PID_FILE}" ]; then
         return 0
     fi
-    start-stop-daemon --stop --pidfile "${PID_FILE}" --retry 10
+    pid="$(cat "${PID_FILE}")"
+    if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+        kill "${pid}"
+        tries=0
+        while kill -0 "${pid}" 2>/dev/null && [ "${tries}" -lt 10 ]; do
+            sleep 1
+            tries=$((tries + 1))
+        done
+        if kill -0 "${pid}" 2>/dev/null; then
+            kill -9 "${pid}"
+        fi
+    fi
     rm -f "${PID_FILE}"
 }
 

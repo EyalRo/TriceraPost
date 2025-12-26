@@ -7,10 +7,23 @@ import sys
 import threading
 import tty
 import termios
+from typing import Optional
 
-from services.db import get_complete_db_readonly, get_nzb_db_readonly, get_releases_db_readonly
-from services.event_bus import publish_event
+from services.db import (
+    COMPLETE_DB_PATH,
+    INGEST_DB_PATH,
+    NZB_DB_PATH,
+    RELEASES_DB_PATH,
+    STATE_DB_PATH,
+    get_complete_db_readonly,
+    get_ingest_db_readonly,
+    get_nzb_db_readonly,
+    get_releases_db_readonly,
+    get_state_db_readonly,
+)
+from services.event_bus import EVENTS_DB_PATH, publish_event
 from services.ingest import load_env
+from services.nzb_store import save_all_nzbs_to_disk
 from services.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -109,6 +122,39 @@ def read_releases(table):
     return payload
 
 
+def _count_rows(conn, query, params=None) -> int:
+    if conn is None:
+        return 0
+    try:
+        row = conn.execute(query, params or ()).fetchone()
+    except Exception:
+        return 0
+    if row is None:
+        return 0
+    return int(list(row)[0] or 0)
+
+
+def read_status() -> dict:
+    state_conn = get_state_db_readonly()
+    ingest_conn = get_ingest_db_readonly()
+    releases_conn = get_complete_db_readonly()
+    nzb_conn = get_nzb_db_readonly()
+
+    status = {
+        "groups_scanned": _count_rows(state_conn, "SELECT COUNT(*) FROM state"),
+        "posts_scanned": _count_rows(ingest_conn, "SELECT COUNT(*) FROM ingest WHERE type = 'header'"),
+        "sets_found": _count_rows(releases_conn, "SELECT COUNT(*) FROM releases_complete"),
+        "sets_rejected": _count_rows(nzb_conn, "SELECT COUNT(*) FROM nzb_invalid"),
+        "nzbs_found": _count_rows(nzb_conn, "SELECT COUNT(*) FROM nzbs WHERE source = 'found'"),
+        "nzbs_generated": _count_rows(nzb_conn, "SELECT COUNT(*) FROM nzbs WHERE source = 'generated'"),
+    }
+
+    for conn in (state_conn, ingest_conn, releases_conn, nzb_conn):
+        if conn is not None:
+            conn.close()
+    return status
+
+
 def run_scan(groups):
     if not groups:
         return {"ok": False, "error": "No groups selected"}
@@ -152,6 +198,41 @@ def read_nzbs() -> list[dict]:
         }
         for row in rows
     ]
+
+
+def read_nzb_payload(key: str) -> tuple[Optional[str], Optional[bytes], Optional[str]]:
+    conn = get_nzb_db_readonly()
+    if conn is None:
+        return None, None, None
+    row = conn.execute("SELECT name, payload, path FROM nzbs WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    if not row:
+        return None, None, None
+    return row["name"], row["payload"], row["path"]
+
+
+def clear_db() -> dict:
+    db_paths = [
+        STATE_DB_PATH,
+        INGEST_DB_PATH,
+        RELEASES_DB_PATH,
+        COMPLETE_DB_PATH,
+        NZB_DB_PATH,
+        EVENTS_DB_PATH,
+    ]
+    removed = []
+    failed = []
+    for path in db_paths:
+        if not path:
+            continue
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                removed.append(path)
+        except Exception as exc:
+            failed.append({"path": path, "error": str(exc)})
+
+    return {"removed": removed, "failed": failed}
 
 
 def _is_binary_group(name: str) -> bool:
@@ -199,6 +280,8 @@ class Handler(BaseHTTPRequestHandler):
             "NNTP_PASS_SET": bool(get_setting("NNTP_PASS")),
             "NNTP_LOOKBACK": get_int_setting("NNTP_LOOKBACK", 2000),
             "NNTP_GROUPS": get_setting("NNTP_GROUPS", ""),
+            "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", True),
+            "TRICERAPOST_NZB_DIR": get_setting("TRICERAPOST_NZB_DIR", ""),
         }
     def _send_json(self, payload, status=HTTPStatus.OK):
         data = json.dumps(payload).encode("utf-8")
@@ -211,7 +294,7 @@ class Handler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             return
 
-    def _send_bytes(self, data: bytes, content_type: str, filename: str | None = None):
+    def _send_bytes(self, data: bytes, content_type: str, filename: Optional[str] = None):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
@@ -276,23 +359,26 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(read_releases("releases"))
         if path == "/api/nzbs":
             return self._send_json(read_nzbs())
+        if path == "/api/status":
+            return self._send_json(read_status())
         if path == "/api/nzb/file":
             query = parse_qs(parsed.query)
             key = (query.get("key") or [None])[0]
             if not key:
                 return self._send_json({"ok": False, "error": "Missing key"}, HTTPStatus.BAD_REQUEST)
-            items = [item for item in read_nzbs() if item.get("key") == key]
-            if not items:
+            name, payload, path_info = read_nzb_payload(key)
+            if not name and not payload and not path_info:
                 return self._send_json({"ok": False, "error": "Not found"}, HTTPStatus.NOT_FOUND)
-            path_info = items[0].get("path")
-            filename = items[0].get("name") or "release"
-            if not path_info or not os.path.exists(path_info):
-                return self._send_json({"ok": False, "error": "Missing file"}, HTTPStatus.NOT_FOUND)
+            filename = name or "release"
             if not filename.lower().endswith(".nzb"):
                 filename = f"{filename}.nzb"
-            with open(path_info, "rb") as handle:
-                data = handle.read()
-            return self._send_bytes(data, "application/x-nzb", filename)
+            if payload is not None:
+                return self._send_bytes(payload, "application/x-nzb", filename)
+            if path_info and os.path.exists(path_info):
+                with open(path_info, "rb") as handle:
+                    data = handle.read()
+                return self._send_bytes(data, "application/x-nzb", filename)
+            return self._send_json({"ok": False, "error": "Missing payload"}, HTTPStatus.NOT_FOUND)
         if path == "/api/groups":
             return self._send_json(read_json(GROUPS_PATH, []))
         if path == "/api/settings":
@@ -319,6 +405,18 @@ class Handler(BaseHTTPRequestHandler):
             if "NNTP_PASS" in payload and payload.get("NNTP_PASS"):
                 settings["NNTP_PASS"] = str(payload.get("NNTP_PASS")).strip()
 
+            if "TRICERAPOST_SAVE_NZBS" in payload:
+                settings["TRICERAPOST_SAVE_NZBS"] = self._coerce_bool(
+                    payload.get("TRICERAPOST_SAVE_NZBS"),
+                    True,
+                )
+            if "TRICERAPOST_NZB_DIR" in payload:
+                nzb_dir = str(payload.get("TRICERAPOST_NZB_DIR") or "").strip()
+                if nzb_dir:
+                    settings["TRICERAPOST_NZB_DIR"] = nzb_dir
+                else:
+                    settings.pop("TRICERAPOST_NZB_DIR", None)
+
             for key in ("NNTP_HOST", "NNTP_USER", "NNTP_GROUPS"):
                 if key in payload:
                     value = payload.get(key)
@@ -340,6 +438,19 @@ class Handler(BaseHTTPRequestHandler):
 
             save_settings(settings)
             return self._send_json({"ok": True, "settings": self._settings_payload()})
+        if path == "/api/nzb/save_all":
+            count = save_all_nzbs_to_disk(get_setting("TRICERAPOST_NZB_DIR") or None)
+            return self._send_json({"ok": True, "saved": count})
+        if path == "/api/admin/clear_db":
+            raw = self._read_body()
+            try:
+                payload = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
+            if not payload.get("confirm"):
+                return self._send_json({"ok": False, "error": "Confirmation required"}, HTTPStatus.BAD_REQUEST)
+            result = clear_db()
+            return self._send_json({"ok": True, **result})
 
         return self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -375,7 +486,7 @@ def wait_for_quit(server, stop_event):
 
 def main():
     load_env()
-    host = "127.0.0.1"
+    host = os.environ.get("TRICERAPOST_BIND_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8080"))
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"Serving on http://{host}:{port}")

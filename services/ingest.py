@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+from typing import Optional
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
@@ -58,7 +59,7 @@ def save_state(conn, group_name: str, last_article: int) -> None:
     )
 
 
-def parse_groups(args_group: str | None, env_group: str | None, env_groups: str | None) -> list[str]:
+def parse_groups(args_group: Optional[str], env_group: Optional[str], env_groups: Optional[str]) -> list[str]:
     if args_group:
         return [args_group]
     if env_groups:
@@ -112,10 +113,10 @@ def parse_overview(overview) -> tuple[str, str, str, int, str]:
 def ingest_groups(
     *,
     groups: list[str],
-    lookback: int | None = None,
+    lookback: Optional[int] = None,
     reset: bool = False,
     emit_events: bool = False,
-    parse_nzb: bool | None = None,
+    parse_nzb: Optional[bool] = None,
     progress_seconds: int = 10,
 ) -> None:
     if parse_nzb is None:

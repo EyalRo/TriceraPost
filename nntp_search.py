@@ -5,7 +5,7 @@ import os
 import re
 import time
 import xml.etree.ElementTree as ET
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from nntp_client import NNTPClient
 
@@ -68,7 +68,7 @@ def normalize_subject(subject: str) -> str:
     return subject.strip(" -_[]()\t ")
 
 
-def extract_filename(subject: str) -> str | None:
+def extract_filename(subject: str) -> Optional[str]:
     match = FILENAME_RE.search(subject)
     if match:
         return match.group(1)
@@ -199,7 +199,7 @@ def save_releases(releases: Dict[str, Dict[str, str]]) -> None:
         handle.write("\n")
 
 
-def parse_groups(args_group: str | None, env_group: str | None, env_groups: str | None) -> list[str]:
+def parse_groups(args_group: Optional[str], env_group: Optional[str], env_groups: Optional[str]) -> list[str]:
     if args_group:
         return [args_group]
     if env_groups:

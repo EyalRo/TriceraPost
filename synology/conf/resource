@@ -1,5 +1,15 @@
 {
   "port-config": {
     "protocol-file": "port_conf/tricerapost.sc"
+  },
+  "indexdb": {
+    "app-index": {
+      "conf-relpath": "ui/index.conf",
+      "db-relpath": "indexdb/appindexdb"
+    },
+    "help-index": {
+      "conf-relpath": "ui/helptoc.conf",
+      "db-relpath": "indexdb/helpindexdb"
+    }
   }
 }
