@@ -20,7 +20,7 @@ cp "${ROOT_DIR}/synology/port_conf/TriceraPost.sc" "${PAYLOAD_DIR}/port_conf/Tri
 
 APP_EXCLUDES="--exclude=.git --exclude=__pycache__ --exclude=.env --exclude=.env.* \
 --exclude=data --exclude=nzbs --exclude=nzb_downloads --exclude=downloads \
---exclude=venv --exclude=.venv --exclude=env --exclude=*.log --exclude=synology/build"
+--exclude=venv --exclude=.venv --exclude=env --exclude=*.log --exclude=synology"
 
 # Copy source tree into payload app directory.
 # shellcheck disable=SC2086
@@ -29,6 +29,6 @@ APP_EXCLUDES="--exclude=.git --exclude=__pycache__ --exclude=.env --exclude=.env
 rm -rf "${PAYLOAD_DIR}/app/synology/build"
 
  tar -C "${PAYLOAD_DIR}" -czf "${PKG_DIR}/package.tgz" .
- tar -C "${PKG_DIR}" -czf "${SPK_FILE}" .
+ tar -C "${PKG_DIR}" -cf "${SPK_FILE}" .
 
  echo "Built ${SPK_FILE}"
