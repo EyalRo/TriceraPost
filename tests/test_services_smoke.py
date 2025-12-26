@@ -90,7 +90,10 @@ class ServiceSmokeTests(unittest.TestCase):
                 "date": "now",
             },
         }
+        env = os.environ.copy()
+        env["NNTP_HOST"] = "news.example.com"
         with (
+            mock.patch.dict(os.environ, env, clear=False),
             mock.patch.object(nzb_expander, "NNTPClient", DummyNNTP),
             mock.patch.object(nzb_expander, "iter_events", side_effect=[iter([event]), iter([])]),
             mock.patch.object(nzb_expander, "publish_event"),
