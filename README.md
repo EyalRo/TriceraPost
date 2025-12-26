@@ -30,13 +30,29 @@ Start the local web UI:
 python3 server.py
 ```
 
-The server loads `groups.json`, filters for groups with `bin`/`binary` in the name, and emits a default `scan_requested` on startup.
+The server loads `groups.json`, filters for groups with `bin`/`binary` in the name, and emits a default `scan_requested` on startup. Visit `/settings` to store NNTP credentials locally in `data/settings.json` (override with `TRICERAPOST_SETTINGS_PATH`).
 
 Run everything (workers + server + scheduler):
 
 ```
 python3 tricerapost.py
 ```
+
+For DSM Task Scheduler, you can run periodic scans with:
+
+```
+python3 services/scheduler.py
+```
+
+## Synology SPK
+
+Minimal DSM 7.3+ packaging files are in `synology/`. Build the SPK with:
+
+```
+./synology/build_spk.sh
+```
+
+See `synology/README.md` for install notes.
 
 ## API
 

@@ -7,7 +7,8 @@ from typing import Optional
 
 from nntp_client import NNTPClient
 from services.db import get_nzb_db, get_nzb_db_readonly, init_nzb_db
-from services.ingest import get_env_bool, load_env
+from services.ingest import load_env
+from services.settings import get_bool_setting, get_int_setting, get_setting
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NZB_DIR = os.path.join(BASE_DIR, "nzbs")
@@ -126,13 +127,13 @@ def store_nzb_invalid(
 
 def _connect_nntp() -> NNTPClient | None:
     load_env()
-    host = os.environ.get("NNTP_HOST")
+    host = get_setting("NNTP_HOST")
     if not host:
         return None
-    port = int(os.environ.get("NNTP_PORT", "119"))
-    use_ssl = get_env_bool("NNTP_SSL")
-    user = os.environ.get("NNTP_USER")
-    password = os.environ.get("NNTP_PASS")
+    port = get_int_setting("NNTP_PORT", 119)
+    use_ssl = get_bool_setting("NNTP_SSL")
+    user = get_setting("NNTP_USER")
+    password = get_setting("NNTP_PASS")
 
     client = NNTPClient(host, port, use_ssl=use_ssl)
     try:
@@ -152,7 +153,7 @@ def verify_message_ids(message_ids: list[str]) -> tuple[bool, str | None]:
     if not message_ids:
         return False, "no segments"
 
-    sample = int(os.environ.get("TRICERAPOST_NZB_VERIFY_SAMPLE", "0"))
+    sample = get_int_setting("TRICERAPOST_NZB_VERIFY_SAMPLE", 0)
     targets = message_ids
     if sample > 0 and len(message_ids) > sample:
         head = message_ids[:1]

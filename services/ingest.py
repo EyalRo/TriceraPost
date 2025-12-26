@@ -18,6 +18,7 @@ from services.db import (
     init_state_db,
 )
 from services.release_utils import NZB_RE, parse_nzb, strip_article_headers
+from services.settings import get_bool_setting, get_int_setting, get_setting
 
 
 def load_env(path: str = ".env") -> None:
@@ -124,17 +125,17 @@ def ingest_groups(
 
     load_env()
 
-    host = os.environ.get("NNTP_HOST")
+    host = get_setting("NNTP_HOST")
     if not host:
-        print("NNTP_HOST not set in .env")
+        print("NNTP_HOST not set in settings or .env")
         return
 
-    port = int(os.environ.get("NNTP_PORT", "119"))
-    use_ssl = get_env_bool("NNTP_SSL")
-    user = os.environ.get("NNTP_USER")
-    password = os.environ.get("NNTP_PASS")
+    port = get_int_setting("NNTP_PORT", 119)
+    use_ssl = get_bool_setting("NNTP_SSL")
+    user = get_setting("NNTP_USER")
+    password = get_setting("NNTP_PASS")
 
-    lookback = lookback or int(os.environ.get("NNTP_LOOKBACK", "2000"))
+    lookback = lookback or get_int_setting("NNTP_LOOKBACK", 2000)
 
     state_conn = get_state_db() if not emit_events else get_state_db_readonly()
     if state_conn and not emit_events:
@@ -164,8 +165,8 @@ def ingest_groups(
     client.reader_mode()
     client.auth(user, password)
 
-    batch_size = int(os.environ.get("TRICERAPOST_INGEST_BATCH", "500"))
-    flush_seconds = float(os.environ.get("TRICERAPOST_INGEST_FLUSH", "2"))
+    batch_size = get_int_setting("TRICERAPOST_INGEST_BATCH", 500)
+    flush_seconds = float(get_setting("TRICERAPOST_INGEST_FLUSH", "2"))
     header_batch = []
     last_batch_flush = time.monotonic()
 
@@ -306,7 +307,7 @@ def ingest_groups(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ingest NNTP headers into SQLite.")
-    parser.add_argument("--group", help="Override NNTP_GROUP from .env")
+    parser.add_argument("--group", help="Override NNTP_GROUP from settings/.env")
     parser.add_argument("--groups", help="Comma-separated list of groups")
     parser.add_argument("--lookback", type=int, help="Override NNTP_LOOKBACK")
     parser.add_argument("--reset", action="store_true", help="Ignore saved state for this group")
@@ -314,11 +315,11 @@ def main() -> int:
     parser.add_argument("--progress-seconds", type=int, default=10, help="Progress update interval")
     args = parser.parse_args()
 
-    env_group = os.environ.get("NNTP_GROUP")
-    env_groups = os.environ.get("NNTP_GROUPS")
+    env_group = get_setting("NNTP_GROUP")
+    env_groups = get_setting("NNTP_GROUPS")
     groups = parse_groups(args.group, env_group, args.groups or env_groups)
     if not groups:
-        print("NNTP_GROUP or NNTP_GROUPS not set in .env (or pass --group/--groups)")
+        print("NNTP_GROUP or NNTP_GROUPS not set in settings/.env (or pass --group/--groups)")
         return 1
 
     ingest_groups(

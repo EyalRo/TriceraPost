@@ -10,6 +10,8 @@ import termios
 
 from services.db import get_complete_db_readonly, get_nzb_db_readonly, get_releases_db_readonly
 from services.event_bus import publish_event
+from services.ingest import load_env
+from services.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -158,6 +160,9 @@ def _is_binary_group(name: str) -> bool:
 
 
 def load_binary_groups() -> list[str]:
+    override = get_setting("NNTP_GROUPS")
+    if override:
+        return [g.strip() for g in override.split(",") if g.strip()]
     groups = read_json(GROUPS_PATH, [])
     matches = []
     for entry in groups:
@@ -170,6 +175,31 @@ def load_binary_groups() -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _coerce_bool(self, value, default=False):
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+    def _coerce_int(self, value, default):
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _settings_payload(self):
+        return {
+            "NNTP_HOST": get_setting("NNTP_HOST", ""),
+            "NNTP_PORT": get_int_setting("NNTP_PORT", 119),
+            "NNTP_SSL": get_bool_setting("NNTP_SSL", False),
+            "NNTP_USER": get_setting("NNTP_USER", ""),
+            "NNTP_PASS_SET": bool(get_setting("NNTP_PASS")),
+            "NNTP_LOOKBACK": get_int_setting("NNTP_LOOKBACK", 2000),
+            "NNTP_GROUPS": get_setting("NNTP_GROUPS", ""),
+        }
     def _send_json(self, payload, status=HTTPStatus.OK):
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -231,10 +261,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/":
             return self._send_file(os.path.join(WEB_DIR, "index.html"), "text/html; charset=utf-8")
+        if path == "/settings":
+            return self._send_file(os.path.join(WEB_DIR, "settings.html"), "text/html; charset=utf-8")
         if path == "/assets/style.css":
             return self._send_file(os.path.join(WEB_DIR, "style.css"), "text/css; charset=utf-8")
         if path == "/assets/app.js":
             return self._send_file(os.path.join(WEB_DIR, "app.js"), "text/javascript; charset=utf-8")
+        if path == "/assets/settings.js":
+            return self._send_file(os.path.join(WEB_DIR, "settings.js"), "text/javascript; charset=utf-8")
 
         if path == "/api/releases":
             return self._send_json(read_releases("releases_complete"))
@@ -261,12 +295,51 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_bytes(data, "application/x-nzb", filename)
         if path == "/api/groups":
             return self._send_json(read_json(GROUPS_PATH, []))
+        if path == "/api/settings":
+            return self._send_json(self._settings_payload())
 
         return self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path == "/api/settings":
+            raw = self._read_body()
+            try:
+                payload = json.loads(raw.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
+
+            settings = load_settings()
+            clear_password = bool(payload.get("clear_password"))
+            if clear_password:
+                settings.pop("NNTP_PASS", None)
+
+            if "NNTP_PASS" in payload and payload.get("NNTP_PASS"):
+                settings["NNTP_PASS"] = str(payload.get("NNTP_PASS")).strip()
+
+            for key in ("NNTP_HOST", "NNTP_USER", "NNTP_GROUPS"):
+                if key in payload:
+                    value = payload.get(key)
+                    if value is None or str(value).strip() == "":
+                        settings.pop(key, None)
+                    else:
+                        settings[key] = str(value).strip()
+
+            for key, default in (("NNTP_PORT", 119), ("NNTP_LOOKBACK", 2000)):
+                if key in payload:
+                    value = payload.get(key)
+                    if value is None or value == "":
+                        settings.pop(key, None)
+                    else:
+                        settings[key] = self._coerce_int(value, default)
+
+            if "NNTP_SSL" in payload:
+                settings["NNTP_SSL"] = self._coerce_bool(payload.get("NNTP_SSL"), False)
+
+            save_settings(settings)
+            return self._send_json({"ok": True, "settings": self._settings_payload()})
 
         return self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -301,6 +374,7 @@ def wait_for_quit(server, stop_event):
 
 
 def main():
+    load_env()
     host = "127.0.0.1"
     port = int(os.environ.get("PORT", "8080"))
     httpd = ThreadingHTTPServer((host, port), Handler)

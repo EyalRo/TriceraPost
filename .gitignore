@@ -21,3 +21,5 @@ __pycache__/
 downloads/
 nzbs/
 nzb_downloads/
+synology/build/
+*.spk

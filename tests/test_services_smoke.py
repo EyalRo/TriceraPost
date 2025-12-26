@@ -167,7 +167,11 @@ class ServiceSmokeTests(unittest.TestCase):
             groups_path = os.path.join(tmp, "groups.json")
             with open(groups_path, "w", encoding="utf-8") as handle:
                 json.dump([{"group": "alt.binaries.test"}, {"group": "alt.misc"}], handle)
+            env = os.environ.copy()
+            env.pop("NNTP_GROUPS", None)
+            env["TRICERAPOST_SETTINGS_PATH"] = os.path.join(tmp, "settings.json")
             with (
+                mock.patch.dict(os.environ, env, clear=False),
                 mock.patch.object(scheduler, "GROUPS_PATH", groups_path),
                 mock.patch.object(scheduler, "publish_event"),
                 mock.patch.object(sys, "argv", ["scheduler.py"]),

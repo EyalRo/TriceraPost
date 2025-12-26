@@ -10,7 +10,8 @@ if BASE_DIR not in sys.path:
 
 from nntp_client import NNTPClient
 from services.event_bus import get_last_event_id, iter_events, publish_event, set_last_event_id
-from services.ingest import load_env, get_env_bool
+from services.ingest import load_env
+from services.settings import get_bool_setting, get_int_setting, get_setting
 from services.release_utils import parse_nzb, strip_article_headers
 from services.nzb_store import store_nzb_invalid, store_nzb_payload, verify_message_ids
 from services.nzb_utils import build_nzb_payload, parse_nzb_segments
@@ -24,14 +25,14 @@ def main() -> int:
     args = parser.parse_args()
 
     load_env()
-    host = os.environ.get("NNTP_HOST")
-    port = int(os.environ.get("NNTP_PORT", "119"))
-    use_ssl = get_env_bool("NNTP_SSL")
-    user = os.environ.get("NNTP_USER")
-    password = os.environ.get("NNTP_PASS")
+    host = get_setting("NNTP_HOST")
+    port = get_int_setting("NNTP_PORT", 119)
+    use_ssl = get_bool_setting("NNTP_SSL")
+    user = get_setting("NNTP_USER")
+    password = get_setting("NNTP_PASS")
 
     if not host:
-        print("NNTP_HOST not set in .env")
+        print("NNTP_HOST not set in settings or .env")
         return 1
 
     client = NNTPClient(host, port, use_ssl=use_ssl)

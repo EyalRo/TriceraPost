@@ -1,0 +1,6 @@
+#!/bin/sh
+
+PKG_DIR="${SYNOPKG_PKGDEST}"
+mkdir -p "${PKG_DIR}/var" "${PKG_DIR}/var/data"
+
+exit 0

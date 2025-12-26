@@ -1,0 +1,61 @@
+#!/bin/sh
+
+PKG_NAME="TriceraPost"
+PKG_DIR="${SYNOPKG_PKGDEST}"
+PID_FILE="${PKG_DIR}/var/tricerapost.pid"
+LOG_FILE="${PKG_DIR}/var/tricerapost.log"
+PYTHON_BIN="/usr/bin/python3"
+APP_MAIN="${PKG_DIR}/app/tricerapost.py"
+
+export PYTHONPATH="${PKG_DIR}/app"
+export TRICERAPOST_DB_IN_MEMORY="0"
+export TRICERAPOST_DB_DIR="${PKG_DIR}/var/data"
+export TRICERAPOST_SETTINGS_PATH="${PKG_DIR}/var/settings.json"
+
+start_daemon() {
+    mkdir -p "${PKG_DIR}/var" "${PKG_DIR}/var/data"
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        return 0
+    fi
+    start-stop-daemon --start --background --make-pidfile --pidfile "${PID_FILE}" \
+        --chdir "${PKG_DIR}/app" --exec "${PYTHON_BIN}" -- "${APP_MAIN}" >> "${LOG_FILE}" 2>&1
+}
+
+stop_daemon() {
+    if [ ! -f "${PID_FILE}" ]; then
+        return 0
+    fi
+    start-stop-daemon --stop --pidfile "${PID_FILE}" --retry 10
+    rm -f "${PID_FILE}"
+}
+
+status_daemon() {
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        echo "${PKG_NAME} running"
+        return 0
+    fi
+    echo "${PKG_NAME} stopped"
+    return 1
+}
+
+case "$1" in
+    start)
+        start_daemon
+        ;;
+    stop)
+        stop_daemon
+        ;;
+    restart)
+        stop_daemon
+        start_daemon
+        ;;
+    status)
+        status_daemon
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+ esac
+
+exit 0

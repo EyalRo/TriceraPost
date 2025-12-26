@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TriceraPost | Settings</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>TriceraPost</h1>
+      <nav>
+        <a href="/">Binaries</a>
+        <a href="/settings">Settings</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h2>Connection settings</h2>
+          <p>Store NNTP credentials locally so DSM can run scans without a .env file.</p>
+        </div>
+      </section>
+
+      <section class="settings-panel">
+        <form id="settings-form" class="settings-form">
+          <label>
+            NNTP host
+            <input type="text" id="nntp-host" placeholder="news.example.com" />
+          </label>
+
+          <div class="settings-row">
+            <label>
+              NNTP port
+              <input type="number" id="nntp-port" min="1" max="65535" />
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="nntp-ssl" />
+              Use SSL
+            </label>
+          </div>
+
+          <label>
+            NNTP username
+            <input type="text" id="nntp-user" />
+          </label>
+
+          <label>
+            NNTP password
+            <input type="password" id="nntp-pass" autocomplete="new-password" />
+            <span class="hint" id="nntp-pass-status"></span>
+          </label>
+
+          <label class="checkbox">
+            <input type="checkbox" id="nntp-pass-clear" />
+            Clear stored NNTP password
+          </label>
+
+          <div class="settings-row">
+            <label>
+              NNTP lookback
+              <input type="number" id="nntp-lookback" min="1" />
+            </label>
+            <label>
+              Groups override (comma-separated)
+              <input type="text" id="nntp-groups" placeholder="alt.binaries.example, alt.binaries.more" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="primary">Save settings</button>
+            <span class="status" id="save-status"></span>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/assets/settings.js"></script>
+  </body>
+</html>

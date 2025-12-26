@@ -17,6 +17,7 @@ class ApiSqlTests(unittest.TestCase):
         os.environ["TRICERAPOST_RELEASES_DB"] = os.path.join(cls.tmpdir.name, "releases.db")
         os.environ["TRICERAPOST_COMPLETE_DB"] = os.path.join(cls.tmpdir.name, "complete.db")
         os.environ["TRICERAPOST_NZB_DB"] = os.path.join(cls.tmpdir.name, "nzbs.db")
+        os.environ["TRICERAPOST_SETTINGS_PATH"] = os.path.join(cls.tmpdir.name, "settings.json")
         from services.db import (
             get_complete_db,
             get_nzb_db,
@@ -176,6 +177,34 @@ class ApiSqlTests(unittest.TestCase):
         data = self.fetch_json("/api/nzbs")
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["source"], "generated")
+
+    def test_settings_roundtrip(self):
+        data = self.fetch_json("/api/settings")
+        self.assertIn("NNTP_PASS_SET", data)
+        self.assertFalse(data["NNTP_PASS_SET"])
+
+        payload = {
+            "NNTP_HOST": "news.example.com",
+            "NNTP_PORT": 563,
+            "NNTP_SSL": True,
+            "NNTP_USER": "demo",
+            "NNTP_PASS": "secret",
+            "NNTP_LOOKBACK": 999,
+            "NNTP_GROUPS": "alt.binaries.test",
+        }
+        data = self.fetch_json("/api/settings", method="POST", payload=payload)
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["settings"]["NNTP_HOST"], "news.example.com")
+        self.assertEqual(data["settings"]["NNTP_PORT"], 563)
+        self.assertTrue(data["settings"]["NNTP_SSL"])
+        self.assertEqual(data["settings"]["NNTP_USER"], "demo")
+        self.assertEqual(data["settings"]["NNTP_LOOKBACK"], 999)
+        self.assertEqual(data["settings"]["NNTP_GROUPS"], "alt.binaries.test")
+        self.assertTrue(data["settings"]["NNTP_PASS_SET"])
+
+        data = self.fetch_json("/api/settings", method="POST", payload={"clear_password": True})
+        self.assertTrue(data["ok"])
+        self.assertFalse(data["settings"]["NNTP_PASS_SET"])
 
 
 if __name__ == "__main__":

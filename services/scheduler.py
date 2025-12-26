@@ -10,6 +10,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from services.event_bus import publish_event
+from services.settings import get_setting
 
 GROUPS_PATH = os.path.join(BASE_DIR, "groups.json")
 
@@ -20,6 +21,9 @@ def _is_binary_group(name: str) -> bool:
 
 
 def load_groups() -> list[str]:
+    override = get_setting("NNTP_GROUPS")
+    if override:
+        return [g.strip() for g in override.split(",") if g.strip()]
     if os.path.exists(GROUPS_PATH):
         try:
             with open(GROUPS_PATH, "r", encoding="utf-8") as handle:
