@@ -49,7 +49,7 @@ def main() -> int:
         now = time.monotonic()
         if dirty and ((now - last_change) >= args.debounce or (now - last_build) >= args.max_interval):
             build_releases()
-            filter_main()
+            filter_main([])
             last_build = time.monotonic()
             dirty = False
 

@@ -4,7 +4,7 @@ Private, self-hosted Usenet indexer that scans binary groups, discovers releases
 
 ## Status
 
-Split into simple services (ingest → aggregate → filter) with a lightweight UI/API. NZBs are verified against NNTP before they are saved or shown in the UI.
+Single-process pipeline (scan → ingest → aggregate → filter → verify) optimized for single-machine runtimes, with a lightweight UI/API. Legacy worker-based services remain available if you prefer the event-bus flow.
 
 ## Requirements
 
@@ -32,13 +32,25 @@ python3 server.py
 
 The server loads `groups.json`, filters for groups with `bin`/`binary` in the name, and emits a default `scan_requested` on startup. Visit `/settings` to store NNTP credentials locally in `data/settings.json` (override with `TRICERAPOST_SETTINGS_PATH`).
 
-Run everything (workers + server + scheduler):
+Run the single-process pipeline (scan + aggregate + filter in one process):
 
 ```
 python3 tricerapost.py
 ```
 
-For DSM Task Scheduler, you can run periodic scans with:
+Run the legacy worker stack (event bus + workers):
+
+```
+TRICERAPOST_MODE=eda python3 tricerapost.py
+```
+
+For periodic scans in single-process mode, set an interval:
+
+```
+TRICERAPOST_SCHEDULER_INTERVAL=3600 python3 tricerapost.py
+```
+
+For DSM Task Scheduler with the legacy worker stack, you can run periodic scans with:
 
 ```
 python3 services/scheduler.py
@@ -66,6 +78,7 @@ Base URL: `http://127.0.0.1:8080`
 
 ## Service Breakdown
 
+- `services/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
 - `services/ingest_worker.py`: consumes `scan_requested` events and ingests headers.
 - `services/nzb_expander.py`: consumes `nzb_seen` events and validates NZBs before storing.
 - `services/aggregate_writer.py`: rebuilds release tables on ingest/NZB events.
@@ -75,5 +88,5 @@ Base URL: `http://127.0.0.1:8080`
 
 ## Notes
 
-- SQLite state is split into per-table files (state/ingest/releases/complete/nzbs) unless `TRICERAPOST_DB_IN_MEMORY=1`.
+- SQLite state is split into per-table files (state/ingest/releases/complete/nzbs) unless `TRICERAPOST_DB_PATH` is set to a single file or `TRICERAPOST_DB_IN_MEMORY=1` is enabled.
 - Saved NZB files live in `nzbs/`. Invalid NZBs are tracked in SQLite but not written to disk.

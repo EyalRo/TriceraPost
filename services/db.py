@@ -14,15 +14,28 @@ def _default_base_dir() -> str:
 
 
 BASE_DIR = _default_base_dir()
+UNIFIED_DB_PATH = os.environ.get("TRICERAPOST_DB_PATH")
 
-STATE_DB_PATH = os.environ.get("TRICERAPOST_STATE_DB", os.path.join(BASE_DIR, "tricerapost_state.db"))
-INGEST_DB_PATH = os.environ.get("TRICERAPOST_INGEST_DB", os.path.join(BASE_DIR, "tricerapost_ingest.db"))
-RELEASES_DB_PATH = os.environ.get("TRICERAPOST_RELEASES_DB", os.path.join(BASE_DIR, "tricerapost_releases.db"))
+STATE_DB_PATH = os.environ.get(
+    "TRICERAPOST_STATE_DB",
+    UNIFIED_DB_PATH or os.path.join(BASE_DIR, "tricerapost_state.db"),
+)
+INGEST_DB_PATH = os.environ.get(
+    "TRICERAPOST_INGEST_DB",
+    UNIFIED_DB_PATH or os.path.join(BASE_DIR, "tricerapost_ingest.db"),
+)
+RELEASES_DB_PATH = os.environ.get(
+    "TRICERAPOST_RELEASES_DB",
+    UNIFIED_DB_PATH or os.path.join(BASE_DIR, "tricerapost_releases.db"),
+)
 COMPLETE_DB_PATH = os.environ.get(
     "TRICERAPOST_COMPLETE_DB",
-    os.path.join(BASE_DIR, "tricerapost_releases_complete.db"),
+    UNIFIED_DB_PATH or os.path.join(BASE_DIR, "tricerapost_releases_complete.db"),
 )
-NZB_DB_PATH = os.environ.get("TRICERAPOST_NZB_DB", os.path.join(BASE_DIR, "tricerapost_nzbs.db"))
+NZB_DB_PATH = os.environ.get(
+    "TRICERAPOST_NZB_DB",
+    UNIFIED_DB_PATH or os.path.join(BASE_DIR, "tricerapost_nzbs.db"),
+)
 
 
 def _connect(path: str) -> sqlite3.Connection:

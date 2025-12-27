@@ -21,8 +21,14 @@ def set_proc_name(name: str) -> None:
 
 def main() -> int:
     set_proc_name("tricerapost")
-    import services.runner as runner
-    return runner.main()
+    mode = os.environ.get("TRICERAPOST_MODE", "single").strip().lower()
+    if mode in {"eda", "workers", "legacy"}:
+        import services.runner as runner
+
+        return runner.main()
+    import services.pipeline as pipeline
+
+    return pipeline.main()
 
 
 if __name__ == "__main__":

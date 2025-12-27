@@ -9,6 +9,7 @@
 
 ## Project Layout
 
+- `services/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
 - `services/ingest_worker.py`: NNTP ingest worker (consumes `scan_requested`).
 - `services/nzb_expander.py`: NZB expander worker (consumes `nzb_seen`).
 - `services/aggregate_writer.py`: rebuilds release tables on ingest/NZB events.
@@ -34,6 +35,8 @@
 
 - `.env` holds NNTP credentials and defaults.
 - `.env.example` documents required variables.
+- `TRICERAPOST_DB_PATH=/path/to/tricerapost.db` forces a single SQLite file for all tables.
+- `TRICERAPOST_MODE=eda` runs the legacy worker/event-bus pipeline.
 
 ## Commands
 
@@ -41,4 +44,5 @@
 python3 list_groups.py --output groups.json
 python3 nntp_search.py
 python3 tricerapost.py
+TRICERAPOST_MODE=eda python3 tricerapost.py
 ```

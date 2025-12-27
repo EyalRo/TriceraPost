@@ -235,9 +235,9 @@ def build_segments_for_release(entry: Dict[str, object]) -> list[dict]:
     return [segments[i] for i in sorted(segments)]
 
 
-def main() -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Filter complete releases and extract metadata.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     releases = load_releases()
     merged: Dict[str, Dict[str, object]] = {}
