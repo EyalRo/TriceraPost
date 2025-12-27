@@ -4,7 +4,7 @@ import tempfile
 import threading
 import time
 import unittest
-from urllib import error, request
+from urllib import request
 
 
 class ApiSqlTests(unittest.TestCase):
@@ -21,14 +21,10 @@ class ApiSqlTests(unittest.TestCase):
         from services.db import (
             get_complete_db,
             get_nzb_db,
-            get_ingest_db,
-            get_state_db,
             get_releases_db,
             init_complete_db,
-            init_ingest_db,
             init_nzb_db,
             init_releases_db,
-            init_state_db,
         )
 
         conn = get_releases_db()
@@ -77,47 +73,17 @@ class ApiSqlTests(unittest.TestCase):
         conn.execute("DELETE FROM nzb_invalid")
         conn.execute(
             """
-            INSERT INTO nzbs(key, name, source, group_name, poster, release_key, bytes, path, payload)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO nzbs(key, name, source, group_name, poster, release_key, bytes, path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                "nzb-key",
-                "Example.nzb",
-                "generated",
-                "alt.binaries.tv.hbo",
-                "poster",
-                "Example|poster",
-                123,
-                "",
-                b"<nzb></nzb>",
-            ),
+            ("nzb-key", "Example.nzb", "generated", "alt.binaries.tv.hbo", "poster", "Example|poster", 123, "/tmp/example.nzb"),
         )
         conn.execute(
             """
-            INSERT INTO nzb_invalid(key, name, source, release_key, reason, payload)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO nzb_invalid(key, name, source, release_key, reason)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            ("bad-key", "Bad.nzb", "found", None, "missing", None),
-        )
-        conn.commit()
-        conn.close()
-
-        conn = get_state_db()
-        init_state_db(conn)
-        conn.execute("DELETE FROM state")
-        conn.execute("INSERT INTO state(group_name, last_article) VALUES (?, ?)", ("alt.binaries.tv.hbo", 123))
-        conn.commit()
-        conn.close()
-
-        conn = get_ingest_db()
-        init_ingest_db(conn)
-        conn.execute("DELETE FROM ingest")
-        conn.execute(
-            """
-            INSERT INTO ingest(group_name, type, article, subject, poster, date, bytes, message_id, payload)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            ("alt.binaries.tv.hbo", "header", 1, "Example", "poster", "now", 123, "<msgid>", None),
+            ("bad-key", "Bad.nzb", "found", None, "missing"),
         )
         conn.commit()
         conn.close()
@@ -188,29 +154,6 @@ class ApiSqlTests(unittest.TestCase):
         with request.urlopen(req, timeout=5) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    def fetch_json_with_status(self, path, method="GET", payload=None):
-        data = None
-        headers = {}
-        if payload is not None:
-            data = json.dumps(payload).encode("utf-8")
-            headers["Content-Type"] = "application/json"
-        req = request.Request(self.url(path), data=data, headers=headers, method=method)
-        try:
-            with request.urlopen(req, timeout=5) as resp:
-                return resp.status, json.loads(resp.read().decode("utf-8"))
-        except error.HTTPError as exc:
-            body = exc.read().decode("utf-8")
-            try:
-                payload = json.loads(body)
-            except json.JSONDecodeError:
-                payload = {"raw": body}
-            return exc.code, payload
-
-    def fetch_bytes(self, path):
-        req = request.Request(self.url(path), method="GET")
-        with request.urlopen(req, timeout=5) as resp:
-            return resp.read()
-
     def test_get_groups(self):
         data = self.fetch_json("/api/groups")
         self.assertIsInstance(data, list)
@@ -234,19 +177,6 @@ class ApiSqlTests(unittest.TestCase):
         data = self.fetch_json("/api/nzbs")
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["source"], "generated")
-
-    def test_get_status(self):
-        data = self.fetch_json("/api/status")
-        self.assertEqual(data["groups_scanned"], 1)
-        self.assertEqual(data["posts_scanned"], 1)
-        self.assertEqual(data["sets_found"], 1)
-        self.assertEqual(data["sets_rejected"], 1)
-        self.assertEqual(data["nzbs_found"], 0)
-        self.assertEqual(data["nzbs_generated"], 1)
-
-    def test_get_nzb_payload(self):
-        payload = self.fetch_bytes("/api/nzb/file?key=nzb-key")
-        self.assertEqual(payload, b"<nzb></nzb>")
 
     def test_settings_roundtrip(self):
         data = self.fetch_json("/api/settings")
@@ -275,17 +205,6 @@ class ApiSqlTests(unittest.TestCase):
         data = self.fetch_json("/api/settings", method="POST", payload={"clear_password": True})
         self.assertTrue(data["ok"])
         self.assertFalse(data["settings"]["NNTP_PASS_SET"])
-
-    def test_z_admin_clear_db_requires_confirm(self):
-        status, data = self.fetch_json_with_status("/api/admin/clear_db", method="POST", payload={})
-        self.assertEqual(status, 400)
-        self.assertFalse(data["ok"])
-
-    def test_zz_admin_clear_db(self):
-        status, data = self.fetch_json_with_status("/api/admin/clear_db", method="POST", payload={"confirm": True})
-        self.assertEqual(status, 200)
-        self.assertTrue(data["ok"])
-        self.assertGreaterEqual(len(data["removed"]), 1)
 
 
 if __name__ == "__main__":

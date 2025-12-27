@@ -5,6 +5,7 @@ import re
 import select
 import sys
 import threading
+import time
 import tty
 import termios
 from typing import Optional
@@ -280,6 +281,7 @@ class Handler(BaseHTTPRequestHandler):
             "NNTP_PASS_SET": bool(get_setting("NNTP_PASS")),
             "NNTP_LOOKBACK": get_int_setting("NNTP_LOOKBACK", 2000),
             "NNTP_GROUPS": get_setting("NNTP_GROUPS", ""),
+            "TRICERAPOST_SCHEDULER_INTERVAL": get_int_setting("TRICERAPOST_SCHEDULER_INTERVAL", 0),
             "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", True),
             "TRICERAPOST_NZB_DIR": get_setting("TRICERAPOST_NZB_DIR", ""),
         }
@@ -346,6 +348,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_file(os.path.join(WEB_DIR, "index.html"), "text/html; charset=utf-8")
         if path == "/settings":
             return self._send_file(os.path.join(WEB_DIR, "settings.html"), "text/html; charset=utf-8")
+        if path == "/permissions":
+            return self._send_file(os.path.join(WEB_DIR, "permissions.html"), "text/html; charset=utf-8")
         if path == "/assets/style.css":
             return self._send_file(os.path.join(WEB_DIR, "style.css"), "text/css; charset=utf-8")
         if path == "/assets/app.js":
@@ -361,6 +365,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(read_nzbs())
         if path == "/api/status":
             return self._send_json(read_status())
+        if path == "/api/status/stream":
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            try:
+                while True:
+                    payload = json.dumps(read_status())
+                    self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    time.sleep(2)
+            except (BrokenPipeError, ConnectionResetError):
+                return
         if path == "/api/nzb/file":
             query = parse_qs(parsed.query)
             key = (query.get("key") or [None])[0]
@@ -425,7 +443,11 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         settings[key] = str(value).strip()
 
-            for key, default in (("NNTP_PORT", 119), ("NNTP_LOOKBACK", 2000)):
+            for key, default in (
+                ("NNTP_PORT", 119),
+                ("NNTP_LOOKBACK", 2000),
+                ("TRICERAPOST_SCHEDULER_INTERVAL", 0),
+            ):
                 if key in payload:
                     value = payload.get(key)
                     if value is None or value == "":

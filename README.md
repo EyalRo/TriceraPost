@@ -1,16 +1,30 @@
 # TriceraPost
 
-Private, self-hosted Usenet indexer that scans binary groups, discovers releases, and builds verified NZBs for your downloader. It runs as a standalone Python service or as a Synology DSM package.
+Private, self-hosted Usenet indexer that scans binary groups, discovers releases, and outputs verified NZB files for your NZB client.
+
+## Status
+
+Split into simple services (ingest → aggregate → filter) with a lightweight UI/API. NZBs are verified against NNTP before they are saved or shown in the UI.
 
 ## Requirements
 
 - Python 3.x
 - NNTP access credentials
 
-## Install (Standalone)
+## Setup
 
 1. Copy `.env.example` to `.env` and fill in values.
-2. Start the local web UI:
+2. Run one of the scripts.
+
+## Usage
+
+List groups to JSON:
+
+```
+python3 list_groups.py --output groups.json
+```
+
+Start the local web UI:
 
 ```
 python3 server.py
@@ -24,23 +38,31 @@ Run everything (workers + server + scheduler):
 python3 tricerapost.py
 ```
 
-## Install (Synology DSM)
+For DSM Task Scheduler, you can run periodic scans with:
 
-1. Ensure DSM's `Python3` package is installed.
-2. Build the SPK:
+```
+python3 services/scheduler.py
+```
+
+## Synology SPK
+
+Minimal DSM 7.3+ packaging files are in `synology/`. Build the SPK with:
 
 ```
 ./synology/build_spk.sh
 ```
 
-3. Open DSM Package Center and choose Manual Install.
-4. Select `synology/build/TriceraPost.spk`.
+See `synology/README.md` for install notes.
 
-After install, launch TriceraPost from the DSM app menu.
+## API
 
-## Swagger
+Base URL: `http://127.0.0.1:8080`
 
-This project uses Swagger (OpenAPI) for API documentation. See https://swagger.io/ for tooling and UI details.
+- `GET /api/groups` → list of NNTP groups from `groups.json`
+- `GET /api/releases` → list of complete releases (includes `nzb_created` flag)
+- `GET /api/releases/raw` → raw aggregated releases
+- `GET /api/nzbs` → list of saved NZB files
+- `GET /api/nzb/file?key=...` → download a stored NZB file
 
 ## Service Breakdown
 
@@ -50,3 +72,8 @@ This project uses Swagger (OpenAPI) for API documentation. See https://swagger.i
 - `services/writer_worker.py`: writes ingest/state data into SQLite.
 - `services/scheduler.py`: emits `scan_requested` events.
 - `server.py`: local API + UI for browsing.
+
+## Notes
+
+- SQLite state is split into per-table files (state/ingest/releases/complete/nzbs) unless `TRICERAPOST_DB_IN_MEMORY=1`.
+- Saved NZB files live in `nzbs/`. Invalid NZBs are tracked in SQLite but not written to disk.

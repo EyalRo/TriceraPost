@@ -28,6 +28,79 @@ function qs(id) {
   return document.getElementById(id);
 }
 
+function formatNumber(value) {
+  const num = Number(value || 0);
+  return Number.isFinite(num) ? num.toLocaleString() : "0";
+}
+
+function renderStatus(status) {
+  const groups = qs("status-groups");
+  const posts = qs("status-posts");
+  const sets = qs("status-sets");
+  const nzbsFound = qs("status-nzbs-found");
+  const nzbsGenerated = qs("status-nzbs-generated");
+  const setsRejected = qs("status-sets-rejected");
+  if (!groups) return;
+  groups.textContent = formatNumber(status.groups_scanned);
+  posts.textContent = formatNumber(status.posts_scanned);
+  sets.textContent = formatNumber(status.sets_found);
+  nzbsFound.textContent = formatNumber(status.nzbs_found);
+  nzbsGenerated.textContent = formatNumber(status.nzbs_generated);
+  setsRejected.textContent = formatNumber(status.sets_rejected);
+}
+
+async function loadStatusOnce() {
+  try {
+    const prefix = basePath();
+    const status = await fetchJson(`${prefix}/api/status`);
+    renderStatus(status);
+  } catch (err) {
+    const connection = qs("status-connection");
+    if (connection) connection.textContent = `Status: failed (${err.message})`;
+  }
+}
+
+function startStatusStream() {
+  const connection = qs("status-connection");
+  if (!window.EventSource) {
+    if (connection) connection.textContent = "Status: polling...";
+    loadStatusOnce();
+    setInterval(loadStatusOnce, 5000);
+    return;
+  }
+
+  const prefix = basePath();
+  const source = new EventSource(`${prefix}/api/status/stream`);
+  let reconnectTimer;
+
+  const reconnect = () => {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      startStatusStream();
+    }, 3000);
+  };
+
+  source.onopen = () => {
+    if (connection) connection.textContent = "Status: live";
+  };
+
+  source.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      renderStatus(data);
+    } catch (err) {
+      if (connection) connection.textContent = "Status: parse error";
+    }
+  };
+
+  source.onerror = () => {
+    source.close();
+    if (connection) connection.textContent = "Status: reconnecting...";
+    reconnect();
+  };
+}
+
 function formatMeta(item) {
   const meta = [];
   if (item.type && item.type !== "unknown") meta.push(item.type);
@@ -253,6 +326,7 @@ function initPage() {
 
   loadReleases();
   loadNzbs();
+  startStatusStream();
 }
 
 initPage();

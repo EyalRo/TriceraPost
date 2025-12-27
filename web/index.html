@@ -12,6 +12,7 @@
       <nav>
         <a href="./">Binaries</a>
         <a href="settings">Settings</a>
+        <a href="permissions">NZB Permissions</a>
       </nav>
     </header>
 
@@ -24,6 +25,33 @@
             <button id="save-all-nzbs">Save all NZBs to disk</button>
             <span class="status" id="save-all-status"></span>
           </div>
+        </div>
+        <div class="status-grid" id="status-grid">
+          <div class="status-item">
+            <span class="label">Groups scanned</span>
+            <span class="value" id="status-groups">0</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Posts scanned</span>
+            <span class="value" id="status-posts">0</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Sets found</span>
+            <span class="value" id="status-sets">0</span>
+          </div>
+          <div class="status-item">
+            <span class="label">NZBs found</span>
+            <span class="value" id="status-nzbs-found">0</span>
+          </div>
+          <div class="status-item">
+            <span class="label">NZBs generated</span>
+            <span class="value" id="status-nzbs-generated">0</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Sets rejected</span>
+            <span class="value" id="status-sets-rejected">0</span>
+          </div>
+          <div class="status-connection" id="status-connection">Status: connecting...</div>
         </div>
       </section>
 

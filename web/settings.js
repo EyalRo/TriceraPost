@@ -36,6 +36,7 @@ async function loadSettings() {
     qs("nntp-user").value = settings.NNTP_USER || "";
     qs("nntp-lookback").value = settings.NNTP_LOOKBACK || "";
     qs("nntp-groups").value = settings.NNTP_GROUPS || "";
+    qs("scheduler-interval").value = settings.TRICERAPOST_SCHEDULER_INTERVAL ?? "";
     qs("nzb-save").checked = settings.TRICERAPOST_SAVE_NZBS !== false;
     qs("nzb-dir").value = settings.TRICERAPOST_NZB_DIR || "";
 
@@ -63,6 +64,7 @@ function bindForm() {
       NNTP_USER: qs("nntp-user").value.trim(),
       NNTP_LOOKBACK: qs("nntp-lookback").value,
       NNTP_GROUPS: qs("nntp-groups").value.trim(),
+      TRICERAPOST_SCHEDULER_INTERVAL: qs("scheduler-interval").value,
       TRICERAPOST_SAVE_NZBS: qs("nzb-save").checked,
       TRICERAPOST_NZB_DIR: qs("nzb-dir").value.trim(),
       clear_password: qs("nntp-pass-clear").checked,

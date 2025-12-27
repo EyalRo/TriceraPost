@@ -168,10 +168,13 @@ def save_nzb_to_disk(key: str, directory: Optional[str] = None) -> Optional[str]
     if not filename.lower().endswith(".nzb"):
         filename = f"{filename}.nzb"
     target_dir = directory or _nzb_dir()
-    os.makedirs(target_dir, exist_ok=True)
     path = os.path.join(target_dir, f"{key[:8]}_{filename}")
-    with open(path, "wb") as handle:
-        handle.write(payload)
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(payload)
+    except OSError:
+        return None
     return path
 
 

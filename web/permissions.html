@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TriceraPost | NZB Permissions</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>TriceraPost</h1>
+      <nav>
+        <a href="./">Binaries</a>
+        <a href="settings">Settings</a>
+        <a href="permissions">NZB Permissions</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h2>NZB folder permissions</h2>
+          <p>TriceraPost needs write access to the NZB output directory to save files safely.</p>
+        </div>
+      </section>
+
+      <section class="settings-panel">
+        <div class="settings-form">
+          <label>
+            Why this matters
+            <span class="hint">
+              The DSM package runs as the <strong>tricerapost</strong> user. If that user cannot
+              write to the NZB folder, background workers will fail to save NZBs.
+            </span>
+          </label>
+
+          <label>
+            What to allow
+            <span class="hint">
+              Grant <strong>read/write</strong> permissions for the <strong>tricerapost</strong>
+              user on the NZB folder and make sure the parent folders allow traverse.
+            </span>
+          </label>
+
+          <label>
+            Recommended path
+            <span class="hint">
+              A safe default is a folder owned by the package, for example:
+              <code>/volume1/@appdata/tricerapost/nzbs</code>
+            </span>
+          </label>
+
+          <label>
+            Update in Settings
+            <span class="hint">
+              After permissions are set, update <strong>NZB output directory</strong> on the
+              Settings tab to match the writable path.
+            </span>
+          </label>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

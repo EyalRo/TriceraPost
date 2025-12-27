@@ -21,7 +21,6 @@ def set_proc_name(name: str) -> None:
 
 def main() -> int:
     set_proc_name("tricerapost")
-    os.environ.setdefault("TRICERAPOST_DB_IN_MEMORY", "1")
     import services.runner as runner
     return runner.main()
 
