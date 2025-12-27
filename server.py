@@ -352,6 +352,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_file(os.path.join(WEB_DIR, "permissions.html"), "text/html; charset=utf-8")
         if path == "/assets/style.css":
             return self._send_file(os.path.join(WEB_DIR, "style.css"), "text/css; charset=utf-8")
+        if path == "/assets/icon.png":
+            return self._send_file(os.path.join(WEB_DIR, "icon.png"), "image/png")
         if path == "/assets/app.js":
             return self._send_file(os.path.join(WEB_DIR, "app.js"), "text/javascript; charset=utf-8")
         if path == "/assets/settings.js":
