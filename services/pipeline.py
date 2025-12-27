@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
+import re
 import sys
 import time
 from typing import Optional
@@ -23,7 +25,6 @@ from services.ingest import (
 from services.nzb_store import store_nzb_invalid, store_nzb_payload, verify_message_ids
 from services.nzb_utils import build_nzb_payload, parse_nzb_segments
 from services.release_utils import NZB_RE, parse_nzb, strip_article_headers
-from services.scheduler import load_groups as load_default_groups
 from services.settings import get_bool_setting, get_int_setting, get_setting
 from services.db import get_ingest_db, get_state_db, init_ingest_db, init_state_db
 
@@ -39,6 +40,86 @@ def _fetch_nzb_body(client: NNTPClient, group: str, target: str) -> Optional[lis
             return strip_article_headers(article_lines)
         except Exception:
             return None
+
+
+def _is_binary_group(name: str) -> bool:
+    tokens = re.split(r"[._-]+", name.lower())
+    return any(token in {"bin", "binary", "binaries"} for token in tokens)
+
+
+def _extract_binary_groups(groups: list[dict]) -> list[str]:
+    matches = []
+    for entry in groups:
+        name = str(entry.get("group", "")).strip()
+        if not name:
+            continue
+        if _is_binary_group(name):
+            matches.append(name)
+    return sorted({g for g in matches if g})
+
+
+def _load_groups_json(path: str) -> list[dict]:
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return []
+    if isinstance(data, list):
+        return [entry for entry in data if isinstance(entry, dict)]
+    return []
+
+
+def _write_groups_json(path: str, groups: list[dict]) -> None:
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(groups, handle, indent=2)
+            handle.write("\n")
+    except OSError:
+        pass
+
+
+def _fetch_groups_from_nntp() -> list[dict]:
+    host = get_setting("NNTP_HOST")
+    if not host:
+        return []
+    port = get_int_setting("NNTP_PORT", 119)
+    use_ssl = get_bool_setting("NNTP_SSL")
+    user = get_setting("NNTP_USER")
+    password = get_setting("NNTP_PASS")
+
+    client = NNTPClient(host, port, use_ssl=use_ssl)
+    try:
+        client.connect()
+        client.reader_mode()
+        client.auth(user, password)
+        return client.list()
+    except Exception:
+        return []
+    finally:
+        try:
+            client.quit()
+        except Exception:
+            pass
+
+
+def load_default_groups() -> list[str]:
+    override = get_setting("NNTP_GROUPS")
+    if override:
+        return [g.strip() for g in override.split(",") if g.strip()]
+
+    groups_path = os.path.join(BASE_DIR, "groups.json")
+    fetched = _fetch_groups_from_nntp()
+    if fetched:
+        _write_groups_json(groups_path, fetched)
+        return _extract_binary_groups(fetched)
+
+    cached = _load_groups_json(groups_path)
+    if cached:
+        return _extract_binary_groups(cached)
+
+    return []
 
 
 def _ingest_nzb_target(

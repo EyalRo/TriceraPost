@@ -14,7 +14,6 @@ from nntp_client import NNTPClient
 from services.db import (
     get_ingest_db,
     get_state_db,
-    get_state_db_readonly,
     init_ingest_db,
     init_state_db,
 )
@@ -32,13 +31,6 @@ def load_env(path: str = ".env") -> None:
                 continue
             key, value = line.split("=", 1)
             os.environ.setdefault(key.strip(), value.strip())
-
-
-def get_env_bool(key: str, default: bool = False) -> bool:
-    value = os.environ.get(key)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "y"}
 
 
 def load_state(conn) -> dict:
@@ -115,14 +107,11 @@ def ingest_groups(
     groups: list[str],
     lookback: Optional[int] = None,
     reset: bool = False,
-    emit_events: bool = False,
     parse_nzb: Optional[bool] = None,
     progress_seconds: int = 10,
 ) -> None:
     if parse_nzb is None:
-        parse_nzb = not emit_events
-    if emit_events:
-        parse_nzb = False
+        parse_nzb = True
 
     load_env()
 
@@ -138,46 +127,22 @@ def ingest_groups(
 
     lookback = lookback or get_int_setting("NNTP_LOOKBACK", 2000)
 
-    state_conn = get_state_db() if not emit_events else get_state_db_readonly()
-    if state_conn and not emit_events:
-        init_state_db(state_conn)
+    state_conn = get_state_db()
+    init_state_db(state_conn)
     state = load_state(state_conn)
 
-    ingest_conn = None
-    if not emit_events:
-        ingest_conn = get_ingest_db()
-        init_ingest_db(ingest_conn)
-
-    if emit_events:
-        from services.event_bus import publish_event
-    else:
-        publish_event = None
+    ingest_conn = get_ingest_db()
+    init_ingest_db(ingest_conn)
 
     for group in groups:
         if reset:
-            if emit_events:
-                publish_event("state_reset", {"group": group})
-            else:
-                state_conn.execute("DELETE FROM state WHERE group_name = ?", (group,))
+            state_conn.execute("DELETE FROM state WHERE group_name = ?", (group,))
             state.pop(group, None)
 
     client = NNTPClient(host, port, use_ssl=use_ssl)
     client.connect()
     client.reader_mode()
     client.auth(user, password)
-
-    batch_size = get_int_setting("TRICERAPOST_INGEST_BATCH", 500)
-    flush_seconds = float(get_setting("TRICERAPOST_INGEST_FLUSH", "2"))
-    header_batch = []
-    last_batch_flush = time.monotonic()
-
-    def flush_headers() -> None:
-        nonlocal last_batch_flush
-        if not header_batch:
-            return
-        publish_event("header_ingested_batch", {"items": header_batch[:]})
-        header_batch.clear()
-        last_batch_flush = time.monotonic()
 
     try:
         for group in groups:
@@ -194,9 +159,6 @@ def ingest_groups(
 
             total_range = end - start + 1
             print(f"Scanning {group}: 0/{total_range} (fetching overview)")
-            if publish_event:
-                publish_event("scan_progress", {"group": group, "current": 0, "total": total_range})
-
             overview_list = client.xover(start, end)
             total_articles = len(overview_list)
             if total_articles != total_range:
@@ -217,12 +179,7 @@ def ingest_groups(
                     "bytes": size,
                     "message_id": message_id,
                 }
-                if publish_event:
-                    header_batch.append(record)
-                    if len(header_batch) >= batch_size:
-                        flush_headers()
-                else:
-                    append_record(ingest_conn, record)
+                append_record(ingest_conn, record)
 
                 if NZB_RE.search(subject):
                     nzb_targets.append(
@@ -235,20 +192,10 @@ def ingest_groups(
                             "message_id": message_id,
                         }
                     )
-                    if publish_event:
-                        publish_event("nzb_seen", nzb_targets[-1])
-
                 now = time.monotonic()
                 if now - last_progress >= progress_seconds or idx == total_articles:
                     print(f"Scanning {group}: {idx}/{total_articles}")
-                    if publish_event:
-                        publish_event(
-                            "scan_progress",
-                            {"group": group, "current": idx, "total": total_articles},
-                        )
                     last_progress = now
-                if publish_event and (now - last_batch_flush) >= flush_seconds:
-                    flush_headers()
 
             if nzb_targets and parse_nzb:
                 for target in nzb_targets:
@@ -290,20 +237,13 @@ def ingest_groups(
                         }
                         append_record(ingest_conn, record)
 
-            if publish_event:
-                publish_event("state_update", {"group": group, "last_article": end})
-            else:
-                save_state(state_conn, group, end)
-                ingest_conn.commit()
-                state_conn.commit()
+            save_state(state_conn, group, end)
+            ingest_conn.commit()
+            state_conn.commit()
     finally:
-        if publish_event:
-            flush_headers()
         client.quit()
-        if ingest_conn:
-            ingest_conn.close()
-        if state_conn:
-            state_conn.close()
+        ingest_conn.close()
+        state_conn.close()
 
 
 def main() -> int:
@@ -327,7 +267,6 @@ def main() -> int:
         groups=groups,
         lookback=args.lookback,
         reset=args.reset,
-        emit_events=False,
         parse_nzb=not args.no_nzb,
         progress_seconds=args.progress_seconds,
     )
