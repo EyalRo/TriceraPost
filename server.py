@@ -22,7 +22,6 @@ from services.db import (
     get_releases_db_readonly,
     get_state_db_readonly,
 )
-from services.event_bus import EVENTS_DB_PATH, publish_event
 from services.ingest import load_env
 from services.nzb_store import save_all_nzbs_to_disk
 from services.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
@@ -156,14 +155,6 @@ def read_status() -> dict:
     return status
 
 
-def run_scan(groups):
-    if not groups:
-        return {"ok": False, "error": "No groups selected"}
-
-    publish_event("scan_requested", {"groups": groups})
-    return {"ok": True, "message": "scan_requested emitted"}
-
-
 def load_nzb_release_keys() -> set[str]:
     conn = get_nzb_db_readonly()
     if conn is None:
@@ -219,7 +210,6 @@ def clear_db() -> dict:
         RELEASES_DB_PATH,
         COMPLETE_DB_PATH,
         NZB_DB_PATH,
-        EVENTS_DB_PATH,
     ]
     removed = []
     failed = []
@@ -515,11 +505,6 @@ def main():
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"Serving on http://{host}:{port}")
     print("Press Ctrl+C or type 'q' then Enter to stop.")
-
-    groups = load_binary_groups()
-    result = run_scan(groups)
-    if not result.get("ok"):
-        print("No matching binary groups found for default scan.")
 
     stop_event = threading.Event()
     quit_thread = threading.Thread(target=wait_for_quit, args=(httpd, stop_event))

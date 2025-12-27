@@ -4,7 +4,7 @@ Private, self-hosted Usenet indexer that scans binary groups, discovers releases
 
 ## Status
 
-Single-process pipeline (scan → ingest → aggregate → filter → verify) optimized for single-machine runtimes, with a lightweight UI/API. Legacy worker-based services remain available if you prefer the event-bus flow.
+Single-process pipeline (scan → ingest → aggregate → filter → verify) optimized for single-machine runtimes, with a lightweight UI/API.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ Start the local web UI:
 python3 server.py
 ```
 
-The server loads `groups.json`, filters for groups with `bin`/`binary` in the name, and emits a default `scan_requested` on startup. Visit `/settings` to store NNTP credentials locally in `data/settings.json` (override with `TRICERAPOST_SETTINGS_PATH`).
+Visit `/settings` to store NNTP credentials locally in `data/settings.json` (override with `TRICERAPOST_SETTINGS_PATH`).
 
 Run the single-process pipeline (scan + aggregate + filter in one process):
 
@@ -38,22 +38,10 @@ Run the single-process pipeline (scan + aggregate + filter in one process):
 python3 tricerapost.py
 ```
 
-Run the legacy worker stack (event bus + workers):
-
-```
-TRICERAPOST_MODE=eda python3 tricerapost.py
-```
-
 For periodic scans in single-process mode, set an interval:
 
 ```
 TRICERAPOST_SCHEDULER_INTERVAL=3600 python3 tricerapost.py
-```
-
-For DSM Task Scheduler with the legacy worker stack, you can run periodic scans with:
-
-```
-python3 services/scheduler.py
 ```
 
 ## Synology SPK
@@ -79,11 +67,6 @@ Base URL: `http://127.0.0.1:8080`
 ## Service Breakdown
 
 - `services/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
-- `services/ingest_worker.py`: consumes `scan_requested` events and ingests headers.
-- `services/nzb_expander.py`: consumes `nzb_seen` events and validates NZBs before storing.
-- `services/aggregate_writer.py`: rebuilds release tables on ingest/NZB events.
-- `services/writer_worker.py`: writes ingest/state data into SQLite.
-- `services/scheduler.py`: emits `scan_requested` events.
 - `server.py`: local API + UI for browsing.
 
 ## Notes
