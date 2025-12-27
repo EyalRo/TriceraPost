@@ -16,6 +16,7 @@
           python3Packages.pip
           go
           nodejs
+          roc
           sqlite
           nzbget
         ];
