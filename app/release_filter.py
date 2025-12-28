@@ -12,7 +12,7 @@ from app.db import (
 )
 from app.nzb_store import find_nzb_by_release, store_nzb_invalid, store_nzb_payload, verify_message_ids
 from app.nzb_utils import build_nzb_xml
-from app.release_utils import normalize_subject, parse_part
+from app.release_utils import build_tags, normalize_subject, parse_part
 
 QUALITY_RE = re.compile(r"\b(2160p|1080p|720p|576p|480p)\b", re.IGNORECASE)
 SOURCE_RE = re.compile(r"\b(bluray|bdrip|brrip|web[-_. ]?dl|webrip|hdtv|dvd|dvdrip)\b", re.IGNORECASE)
@@ -315,6 +315,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not is_complete(entry["parts"], int(entry["parts_expected"])):
             continue
         meta = parse_metadata(str(entry["name"]))
+        tags = build_tags(name_value, filename_value)
         key_value = f"{entry.get('name')}|{entry.get('poster')}"
         output.append(
             {
@@ -333,6 +334,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "last_seen": entry["last_seen"],
                 "parts_expected": entry["parts_expected"],
                 "parts_received": len(entry["parts"]),
+                "tags": tags,
                 **meta,
             }
         )
@@ -356,8 +358,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                 key, name, normalized_name, filename_guess, nzb_fetch_failed, nzb_source_subject,
                 nzb_article, nzb_message_id, download_failed, groups, poster, bytes, size_human,
                 first_seen, last_seen, parts_expected, parts_received, type,
-                quality, source, codec, audio, languages, subtitles
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                quality, source, codec, audio, languages, subtitles, tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 f"{item.get('name')}|{item.get('poster')}",
@@ -384,6 +386,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 item.get("audio"),
                 json.dumps(item.get("languages")),
                 1 if item.get("subtitles") else 0,
+                json.dumps(item.get("tags") or []),
             ),
         )
     conn.commit()
@@ -420,6 +423,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             group_name=(item.get("groups") or [None])[0],
             poster=item.get("poster"),
             release_key=release_key,
+            tags=item.get("tags") or [],
         )
         generated += 1
 

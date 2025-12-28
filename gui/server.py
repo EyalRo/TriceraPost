@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import select
+import sqlite3
 import sys
 import threading
 import time
@@ -91,6 +92,11 @@ def read_releases(table):
                     "audio": row["audio"],
                     "languages": json.loads(row["languages"]) if row["languages"] else [],
                     "subtitles": bool(row["subtitles"]),
+                    "tags": (
+                        json.loads(row["tags"])
+                        if "tags" in row.keys() and row["tags"]
+                        else []
+                    ),
                     "nzb_created": row["key"] in nzb_keys,
                 }
             )
@@ -176,13 +182,24 @@ def read_nzbs() -> list[dict]:
     conn = get_nzb_db_readonly()
     if conn is None:
         return []
-    rows = conn.execute(
-        """
-        SELECT key, name, source, group_name, poster, release_key, bytes, path, created_at
-        FROM nzbs
-        ORDER BY created_at DESC
-        """
-    ).fetchall()
+    try:
+        rows = conn.execute(
+            """
+            SELECT key, name, source, group_name, poster, release_key, bytes, path, created_at, tags
+            FROM nzbs
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+        has_tags = True
+    except sqlite3.OperationalError:
+        rows = conn.execute(
+            """
+            SELECT key, name, source, group_name, poster, release_key, bytes, path, created_at
+            FROM nzbs
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+        has_tags = False
     conn.close()
     return [
         {
@@ -195,9 +212,59 @@ def read_nzbs() -> list[dict]:
             "bytes": row["bytes"],
             "path": row["path"],
             "created_at": row["created_at"],
+            "tags": json.loads(row["tags"]) if has_tags and row["tags"] else [],
         }
         for row in rows
     ]
+
+
+def _collect_tags(raw_values: list[str]) -> list[str]:
+    tags = set()
+    for raw in raw_values:
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, list):
+            tags.update(str(tag) for tag in parsed if tag)
+    return sorted(tags)
+
+
+def read_all_tags() -> list[str]:
+    tags = set()
+    nzb_conn = get_nzb_db_readonly()
+    if nzb_conn is not None:
+        try:
+            rows = nzb_conn.execute("SELECT tags FROM nzbs").fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+        nzb_conn.close()
+        tags.update(_collect_tags([row["tags"] for row in rows if row["tags"]]))
+
+    complete_conn = get_complete_db_readonly()
+    if complete_conn is not None:
+        try:
+            rows = complete_conn.execute("SELECT tags FROM releases_complete").fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+        complete_conn.close()
+        tags.update(_collect_tags([row["tags"] for row in rows if row["tags"]]))
+
+    return sorted(tags)
+
+
+def read_nzbs_by_tag(tag: str) -> list[dict]:
+    if not tag:
+        return []
+    tag_value = tag.strip().lower()
+    results = []
+    for entry in read_nzbs():
+        tags = [str(t).lower() for t in entry.get("tags") or []]
+        if tag_value in tags:
+            results.append(entry)
+    return results
 
 
 def read_nzb_payload(key: str) -> tuple[str | None, bytes | None, str | None]:
@@ -341,6 +408,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json(read_releases("releases"))
             case "/api/nzbs":
                 return self._send_json(read_nzbs())
+            case "/api/tags":
+                return self._send_json(read_all_tags())
             case "/api/status":
                 return self._send_json(read_status())
             case "/api/status/stream":
@@ -379,6 +448,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json(read_json(GROUPS_PATH, []))
             case "/api/settings":
                 return self._send_json(build_settings_payload())
+            case "/api/nzbs/by_tag":
+                query = parse_qs(parsed.query)
+                tag = (query.get("tag") or [None])[0]
+                if not tag:
+                    return self._send_json({"ok": False, "error": "Missing tag"}, HTTPStatus.BAD_REQUEST)
+                return self._send_json(read_nzbs_by_tag(str(tag)))
             case _:
                 return self.send_error(HTTPStatus.NOT_FOUND)
 

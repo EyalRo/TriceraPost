@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.13
 import hashlib
+import json
 import os
 import random
 import re
@@ -9,6 +10,7 @@ from typing import Optional
 from app.nntp_client import NNTPClient
 from app.db import get_nzb_db, get_nzb_db_readonly, init_nzb_db
 from app.ingest import load_env
+from app.release_utils import build_tags
 from app.settings import get_bool_setting, get_int_setting, get_setting
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,6 +67,7 @@ def store_nzb_payload(
     nzb_source_subject: Optional[str] = None,
     nzb_article: Optional[int] = None,
     nzb_message_id: Optional[str] = None,
+    tags: Optional[list[str]] = None,
 ) -> tuple[str, str]:
     seed = "|".join(
         [
@@ -89,12 +92,14 @@ def store_nzb_payload(
         filename = f"{filename}.nzb"
     path = ""
 
+    tag_list = tags if tags is not None else build_tags(name, nzb_source_subject or "")
+
     conn.execute(
         """
         INSERT INTO nzbs(
             key, name, source, group_name, poster, release_key,
-            nzb_source_subject, nzb_article, nzb_message_id, bytes, path, payload
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            nzb_source_subject, nzb_article, nzb_message_id, bytes, path, payload, tags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             key,
@@ -109,6 +114,7 @@ def store_nzb_payload(
             len(payload),
             path,
             sqlite3.Binary(payload),
+            json.dumps(tag_list),
         ),
     )
     conn.commit()

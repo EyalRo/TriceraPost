@@ -13,7 +13,6 @@
 
 - `app/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
 - `gui/server.py`: local API + UI.
-- `cli/list_groups.py`: dump NNTP group listings to JSON/TSV.
 - `data/`: SQLite storage (split per table unless `TRICERAPOST_DB_PATH` is set).
 - Default scan uses groups from `groups.json` whose names include `bin`/`binary`.
 - `nzbs/`: stored NZB files (found or generated).
@@ -38,9 +37,8 @@
 ## Commands
 
 ```
-python3.13 cli/list_groups.py --output groups.json
-python3.13 cli/nntp_search.py
-python3.13 cli/tricerapost.py
+python3.13 gui/server.py
+python3.13 app/pipeline.py
 ```
 
 ## Information Sources

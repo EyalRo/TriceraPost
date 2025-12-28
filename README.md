@@ -19,12 +19,6 @@ Single-process pipeline (scan → ingest → aggregate → filter → verify) op
 
 ## Usage
 
-List groups to JSON:
-
-```
-python3.13 cli/list_groups.py --output groups.json
-```
-
 Start the local web UI:
 
 ```
@@ -36,13 +30,13 @@ Visit `/settings` to store NNTP credentials locally in `data/settings.json` (ove
 Run the single-process pipeline (scan + aggregate + filter in one process):
 
 ```
-python3.13 cli/tricerapost.py
+python3.13 app/pipeline.py
 ```
 
 For periodic scans in single-process mode, set an interval:
 
 ```
-TRICERAPOST_SCHEDULER_INTERVAL=3600 python3.13 cli/tricerapost.py
+TRICERAPOST_SCHEDULER_INTERVAL=3600 python3.13 app/pipeline.py
 ```
 
 ## Synology SPK

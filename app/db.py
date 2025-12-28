@@ -202,7 +202,8 @@ def init_complete_db(conn: sqlite3.Connection) -> None:
             codec TEXT,
             audio TEXT,
             languages TEXT,
-            subtitles INTEGER DEFAULT 0
+            subtitles INTEGER DEFAULT 0,
+            tags TEXT
         )
         """
     )
@@ -215,6 +216,8 @@ def init_complete_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE releases_complete ADD COLUMN nzb_message_id TEXT")
     if "download_failed" not in cols:
         conn.execute("ALTER TABLE releases_complete ADD COLUMN download_failed INTEGER DEFAULT 0")
+    if "tags" not in cols:
+        conn.execute("ALTER TABLE releases_complete ADD COLUMN tags TEXT")
     conn.commit()
 
 
@@ -234,7 +237,8 @@ def init_nzb_db(conn: sqlite3.Connection) -> None:
             nzb_message_id TEXT,
             bytes INTEGER DEFAULT 0,
             path TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            tags TEXT
         )
         """
     )
@@ -253,6 +257,8 @@ def init_nzb_db(conn: sqlite3.Connection) -> None:
     cols = {row[1] for row in conn.execute("PRAGMA table_info(nzbs)").fetchall()}
     if "payload" not in cols:
         conn.execute("ALTER TABLE nzbs ADD COLUMN payload BLOB")
+    if "tags" not in cols:
+        conn.execute("ALTER TABLE nzbs ADD COLUMN tags TEXT")
     cols_invalid = {row[1] for row in conn.execute("PRAGMA table_info(nzb_invalid)").fetchall()}
     if "payload" not in cols_invalid:
         conn.execute("ALTER TABLE nzb_invalid ADD COLUMN payload BLOB")
