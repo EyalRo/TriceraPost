@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.13
 import json
+import logging
 import os
 import re
 import select
@@ -27,6 +28,7 @@ from app.db import (
     get_state_db_readonly,
 )
 from app.ingest import load_env
+from app.logging_setup import configure_logging
 from app.nzb_store import save_all_nzbs_to_disk
 from app.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
 from http import HTTPStatus
@@ -36,6 +38,7 @@ from urllib.parse import parse_qs, urlparse
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 GROUPS_PATH = os.path.join(ROOT_DIR, "groups.json")
+LOGGER = logging.getLogger("tricerapost")
 
 
 def read_json(path, default):
@@ -278,6 +281,10 @@ class Handler(BaseHTTPRequestHandler):
             "TRICERAPOST_SCHEDULER_INTERVAL": get_int_setting("TRICERAPOST_SCHEDULER_INTERVAL", 0),
             "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", True),
             "TRICERAPOST_NZB_DIR": get_setting("TRICERAPOST_NZB_DIR", ""),
+            "TRICERAPOST_DOWNLOAD_STATION_ENABLED": get_bool_setting(
+                "TRICERAPOST_DOWNLOAD_STATION_ENABLED",
+                True,
+            ),
         }
     def _send_json(self, payload, status=HTTPStatus.OK):
         data = json.dumps(payload).encode("utf-8")
@@ -424,6 +431,11 @@ class Handler(BaseHTTPRequestHandler):
                     payload.get("TRICERAPOST_SAVE_NZBS"),
                     True,
                 )
+            if "TRICERAPOST_DOWNLOAD_STATION_ENABLED" in payload:
+                settings["TRICERAPOST_DOWNLOAD_STATION_ENABLED"] = self._coerce_bool(
+                    payload.get("TRICERAPOST_DOWNLOAD_STATION_ENABLED"),
+                    True,
+                )
             if "TRICERAPOST_NZB_DIR" in payload:
                 nzb_dir = str(payload.get("TRICERAPOST_NZB_DIR") or "").strip()
                 if nzb_dir:
@@ -472,6 +484,16 @@ class Handler(BaseHTTPRequestHandler):
 
         return self.send_error(HTTPStatus.NOT_FOUND)
 
+    def log_message(self, format, *args):
+        logging.getLogger("tricerapost.http").info(
+            "%s - - %s", self.client_address[0], format % args
+        )
+
+    def log_error(self, format, *args):
+        logging.getLogger("tricerapost.http").error(
+            "%s - - %s", self.client_address[0], format % args
+        )
+
 
 
 def wait_for_quit(server, stop_event):
@@ -504,11 +526,12 @@ def wait_for_quit(server, stop_event):
 
 def main():
     load_env()
+    configure_logging()
     host = os.environ.get("TRICERAPOST_BIND_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8080"))
     httpd = ThreadingHTTPServer((host, port), Handler)
-    print(f"Serving on http://{host}:{port}")
-    print("Press Ctrl+C or type 'q' then Enter to stop.")
+    LOGGER.info("Serving on http://%s:%s", host, port)
+    LOGGER.info("Press Ctrl+C or type 'q' then Enter to stop.")
 
     stop_event = threading.Event()
     quit_thread = threading.Thread(target=wait_for_quit, args=(httpd, stop_event))

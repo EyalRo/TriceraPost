@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.13
 import argparse
 import json
 import os
@@ -24,6 +24,7 @@ from app.settings import get_bool_setting, get_int_setting, get_setting
 def load_env(path: str = ".env") -> None:
     if not os.path.exists(path):
         return
+    loaded = 0
     with open(path, "r", encoding="utf-8") as handle:
         for raw in handle:
             line = raw.strip()
@@ -31,6 +32,7 @@ def load_env(path: str = ".env") -> None:
                 continue
             key, value = line.split("=", 1)
             os.environ.setdefault(key.strip(), value.strip())
+            loaded += 1
 
 
 def load_state(conn) -> dict:

@@ -15,8 +15,8 @@
     in {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
-          python3
-          python3Packages.pip
+          python313
+          python313Packages.pip
           wasmtime
           go
           nodejs
@@ -26,10 +26,10 @@
         ];
         shellHook = ''
           if [ ! -d .venv ]; then
-            python3 -m venv .venv
+            python3.13 -m venv .venv
           fi
           . .venv/bin/activate
-          python3 - <<'PY'
+          python3.13 - <<'PY'
 try:
     import wasmtime  # noqa: F401
 except Exception:
@@ -44,13 +44,13 @@ PY
         pipeline-tests = pkgs.runCommand "tricerapost-pipeline-tests" {
           src = src;
           nativeBuildInputs = [
-            pkgs.python3
+            pkgs.python313
           ];
         } ''
           cp -r "$src" source
           chmod -R u+w source
           cd source
-          ${pkgs.python3}/bin/python -m unittest tests.test_pipeline
+          ${pkgs.python313}/bin/python -m unittest tests.test_pipeline
           mkdir -p "$out"
         '';
       } // lib.optionalAttrs hasWasm {

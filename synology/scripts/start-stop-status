@@ -5,11 +5,13 @@ PKG_DIR="${SYNOPKG_PKGDEST}"
 PKG_VAR="/var/packages/${PKG_NAME}/var"
 PID_FILE="${PKG_VAR}/tricerapost.pid"
 LOG_FILE="${PKG_VAR}/tricerapost.log"
-PYTHON_HOME="/volume1/@appstore/Python3.9/usr"
-PYTHON_BIN="${PYTHON_HOME}/bin/python3.9"
+PYTHON_BIN="/usr/local/bin/python3.13"
 if [ -x "${PYTHON_BIN}" ]; then
-    export PYTHONHOME="${PYTHON_HOME}"
+    :
 else
+    PYTHON_BIN="/usr/bin/python3.13"
+fi
+if [ ! -x "${PYTHON_BIN}" ]; then
     PYTHON_BIN="/usr/bin/python3"
 fi
 APP_MAIN="${PKG_DIR}/app/gui/server.py"

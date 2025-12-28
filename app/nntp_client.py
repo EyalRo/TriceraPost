@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.13
 import socket
 import ssl
 from typing import Dict, List, Tuple

@@ -38,9 +38,9 @@
 ## Commands
 
 ```
-python3 cli/list_groups.py --output groups.json
-python3 cli/nntp_search.py
-python3 cli/tricerapost.py
+python3.13 cli/list_groups.py --output groups.json
+python3.13 cli/nntp_search.py
+python3.13 cli/tricerapost.py
 ```
 
 ## Information Sources

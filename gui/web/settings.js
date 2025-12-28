@@ -39,6 +39,7 @@ async function loadSettings() {
     qs("scheduler-interval").value = settings.TRICERAPOST_SCHEDULER_INTERVAL ?? "";
     qs("nzb-save").checked = settings.TRICERAPOST_SAVE_NZBS !== false;
     qs("nzb-dir").value = settings.TRICERAPOST_NZB_DIR || "";
+    qs("download-station-enabled").checked = settings.TRICERAPOST_DOWNLOAD_STATION_ENABLED !== false;
 
     const passStatus = qs("nntp-pass-status");
     if (passStatus) {
@@ -67,6 +68,7 @@ function bindForm() {
       TRICERAPOST_SCHEDULER_INTERVAL: qs("scheduler-interval").value,
       TRICERAPOST_SAVE_NZBS: qs("nzb-save").checked,
       TRICERAPOST_NZB_DIR: qs("nzb-dir").value.trim(),
+      TRICERAPOST_DOWNLOAD_STATION_ENABLED: qs("download-station-enabled").checked,
       clear_password: qs("nntp-pass-clear").checked,
     };
 

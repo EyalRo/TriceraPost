@@ -8,7 +8,7 @@ Single-process pipeline (scan → ingest → aggregate → filter → verify) op
 
 ## Requirements
 
-- Python 3.x
+- Python 3.13
 - NNTP access credentials
 - Optional: `wasmtime` Python package for WASM-accelerated overview parsing (installed by `nix develop`)
 
@@ -22,13 +22,13 @@ Single-process pipeline (scan → ingest → aggregate → filter → verify) op
 List groups to JSON:
 
 ```
-python3 cli/list_groups.py --output groups.json
+python3.13 cli/list_groups.py --output groups.json
 ```
 
 Start the local web UI:
 
 ```
-python3 gui/server.py
+python3.13 gui/server.py
 ```
 
 Visit `/settings` to store NNTP credentials locally in `data/settings.json` (override with `TRICERAPOST_SETTINGS_PATH`).
@@ -36,13 +36,13 @@ Visit `/settings` to store NNTP credentials locally in `data/settings.json` (ove
 Run the single-process pipeline (scan + aggregate + filter in one process):
 
 ```
-python3 cli/tricerapost.py
+python3.13 cli/tricerapost.py
 ```
 
 For periodic scans in single-process mode, set an interval:
 
 ```
-TRICERAPOST_SCHEDULER_INTERVAL=3600 python3 cli/tricerapost.py
+TRICERAPOST_SCHEDULER_INTERVAL=3600 python3.13 cli/tricerapost.py
 ```
 
 ## Synology SPK
@@ -87,7 +87,7 @@ nix develop -c nix flake check
 Run pipeline tests directly:
 
 ```
-python -m unittest tests.test_pipeline
+python3.13 -m unittest tests.test_pipeline
 ```
 
 Compile the WASM module:
