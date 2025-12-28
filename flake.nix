@@ -16,7 +16,7 @@
           python3Packages.pip
           go
           nodejs
-          roc
+          (roc.overrideAttrs (_: { doCheck = false; }))
           sqlite
           nzbget
         ];
