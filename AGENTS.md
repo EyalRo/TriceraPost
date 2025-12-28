@@ -6,6 +6,8 @@
 - Avoid external services, telemetry, or analytics.
 - Prefer simple, readable code with minimal dependencies.
 - Store state in local files (JSON/SQLite) only.
+- Maintain strong test coverage for new code changes.
+- Run the relevant test suite after every code change.
 
 ## Project Layout
 
@@ -31,6 +33,7 @@
 - `.env` holds NNTP credentials and defaults.
 - `.env.example` documents required variables.
 - `TRICERAPOST_DB_PATH=/path/to/tricerapost.db` forces a single SQLite file for all tables.
+- WASM acceleration needs the `wasmtime` Python package; `nix develop` provides it.
 
 ## Commands
 

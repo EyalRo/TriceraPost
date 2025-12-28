@@ -27,6 +27,7 @@ from app.nzb_utils import build_nzb_payload, parse_nzb_segments
 from app.release_utils import NZB_RE, parse_nzb, strip_article_headers
 from app.settings import get_bool_setting, get_int_setting, get_setting
 from app.db import get_ingest_db, get_state_db, init_ingest_db, init_state_db
+from app.wasm_pipeline import get_wasm_pipeline
 
 
 def _fetch_nzb_body(client: NNTPClient, group: str, target: str) -> Optional[list[str]]:
@@ -209,6 +210,7 @@ def run_pipeline_once(
     progress_seconds: int = 10,
 ) -> int:
     load_env()
+    wasm_pipeline = get_wasm_pipeline()
 
     host = get_setting("NNTP_HOST")
     if not host:
@@ -259,9 +261,22 @@ def run_pipeline_once(
                 print(f"Scanning {group}: overview returned {total_articles} articles")
 
             last_progress = time.monotonic()
+            wasm_results = None
+            if wasm_pipeline and overview_list:
+                wasm_results = wasm_pipeline.parse_overviews(overview_list)
+                if not wasm_results or len(wasm_results) != total_articles:
+                    wasm_results = None
 
             for idx, (art_number, overview) in enumerate(overview_list, start=1):
-                subject, poster, date_raw, size, message_id = parse_overview(overview)
+                if wasm_results is not None and isinstance(overview, dict):
+                    subject = overview.get("subject", "")
+                    poster = overview.get("from", "")
+                    date_raw = overview.get("date", "")
+                    message_id = overview.get("message-id", "")
+                    size, is_nzb = wasm_results[idx - 1]
+                else:
+                    subject, poster, date_raw, size, message_id = parse_overview(overview)
+                    is_nzb = bool(NZB_RE.search(subject or ""))
                 record = {
                     "type": "header",
                     "group": group,
@@ -274,7 +289,7 @@ def run_pipeline_once(
                 }
                 append_record(ingest_conn, record)
 
-                if parse_nzb_bodies and NZB_RE.search(subject or ""):
+                if parse_nzb_bodies and is_nzb:
                     _ingest_nzb_target(
                         client=client,
                         ingest_conn=ingest_conn,
