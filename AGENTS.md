@@ -26,7 +26,7 @@
   - `curl -s http://127.0.0.1:8080/api/releases/raw`
   - `curl -s http://127.0.0.1:8080/api/nzbs`
   - `curl -s http://127.0.0.1:8080/api/nzb/file?key=...`
-- If `/mnt/stags/.ssh` is missing, try SSH certs in `~/.ssh` for git operations.
+- If `/mnt/stags/.ssh` is missing or inaccessible, always retry git operations with SSH keys from `~/.ssh` (for example, set `GIT_SSH_COMMAND='ssh -i ~/.ssh/id_ed25519'`).
 
 ## Local Env
 
