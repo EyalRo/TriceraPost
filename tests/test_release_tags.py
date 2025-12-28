@@ -1,9 +1,15 @@
 import unittest
 
 from app.release_utils import build_tags
+from app.wasm_pipeline import get_wasm_pipeline
 
 
 class TestReleaseTags(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if get_wasm_pipeline() is None:
+            raise unittest.SkipTest("WASM tagger not available")
+
     def test_build_tags_extracts_common_fields(self):
         name = "Movie.Title.2024.2160p.WEB-DL.DV.HDR10+.HEVC.Atmos.TrueHD.mkv"
         tags = build_tags(name)
