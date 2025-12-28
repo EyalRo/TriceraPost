@@ -36,7 +36,7 @@ def build_settings_payload() -> SettingsPayload:
         "NNTP_LOOKBACK": get_int_setting("NNTP_LOOKBACK", 2000),
         "NNTP_GROUPS": get_setting("NNTP_GROUPS", ""),
         "TRICERAPOST_SCHEDULER_INTERVAL": get_int_setting("TRICERAPOST_SCHEDULER_INTERVAL", 0),
-        "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", True),
+        "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", False),
         "TRICERAPOST_NZB_DIR": get_setting("TRICERAPOST_NZB_DIR", ""),
         "TRICERAPOST_DOWNLOAD_STATION_ENABLED": get_bool_setting(
             "TRICERAPOST_DOWNLOAD_STATION_ENABLED",

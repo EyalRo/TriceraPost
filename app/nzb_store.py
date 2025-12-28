@@ -25,7 +25,7 @@ def _nzb_dir() -> str:
 
 
 def _auto_save_enabled() -> bool:
-    return get_bool_setting("TRICERAPOST_SAVE_NZBS", True)
+    return get_bool_setting("TRICERAPOST_SAVE_NZBS", False)
 
 
 def ensure_nzb_dir() -> str:
