@@ -9,7 +9,6 @@ import threading
 import time
 import tty
 import termios
-from typing import Optional
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
@@ -39,6 +38,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 GROUPS_PATH = os.path.join(ROOT_DIR, "groups.json")
 LOGGER = logging.getLogger("tricerapost")
+type SettingsPayload = dict[str, object]
+type AssetInfo = tuple[str, str]
 
 
 def read_json(path, default):
@@ -46,6 +47,20 @@ def read_json(path, default):
         return default
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _asset_info(path: str) -> AssetInfo | None:
+    match path:
+        case "/assets/style.css":
+            return ("style.css", "text/css; charset=utf-8")
+        case "/assets/icon.png":
+            return ("icon.png", "image/png")
+        case "/assets/app.js":
+            return ("app.js", "text/javascript; charset=utf-8")
+        case "/assets/settings.js":
+            return ("settings.js", "text/javascript; charset=utf-8")
+        case _:
+            return None
 
 
 def read_releases(table):
@@ -199,7 +214,7 @@ def read_nzbs() -> list[dict]:
     ]
 
 
-def read_nzb_payload(key: str) -> tuple[Optional[str], Optional[bytes], Optional[str]]:
+def read_nzb_payload(key: str) -> tuple[str | None, bytes | None, str | None]:
     conn = get_nzb_db_readonly()
     if conn is None:
         return None, None, None
@@ -210,7 +225,7 @@ def read_nzb_payload(key: str) -> tuple[Optional[str], Optional[bytes], Optional
     return row["name"], row["payload"], row["path"]
 
 
-def clear_db() -> dict:
+def clear_db() -> dict[str, list[object]]:
     db_paths = [
         STATE_DB_PATH,
         INGEST_DB_PATH,
@@ -218,8 +233,9 @@ def clear_db() -> dict:
         COMPLETE_DB_PATH,
         NZB_DB_PATH,
     ]
-    removed = []
-    failed = []
+    removed: list[str] = []
+    failed: list[dict[str, str]] = []
+    errors: list[Exception] = []
     for path in db_paths:
         if not path:
             continue
@@ -229,6 +245,13 @@ def clear_db() -> dict:
                 removed.append(path)
         except Exception as exc:
             failed.append({"path": path, "error": str(exc)})
+            errors.append(exc)
+
+    if errors:
+        try:
+            raise ExceptionGroup("Failed to remove DB files", errors)
+        except* Exception as exc_group:
+            LOGGER.error("Clear DB failures: %s", exc_group)
 
     return {"removed": removed, "failed": failed}
 
@@ -269,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             return default
 
-    def _settings_payload(self):
+    def _settings_payload(self) -> SettingsPayload:
         return {
             "NNTP_HOST": get_setting("NNTP_HOST", ""),
             "NNTP_PORT": get_int_setting("NNTP_PORT", 119),
@@ -297,7 +320,7 @@ class Handler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             return
 
-    def _send_bytes(self, data: bytes, content_type: str, filename: Optional[str] = None):
+    def _send_bytes(self, data: bytes, content_type: str, filename: str | None = None):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
@@ -345,144 +368,142 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        if path == "/":
-            return self._send_file(os.path.join(WEB_DIR, "index.html"), "text/html; charset=utf-8")
-        if path == "/settings":
-            return self._send_file(os.path.join(WEB_DIR, "settings.html"), "text/html; charset=utf-8")
-        if path == "/permissions":
-            return self._send_file(os.path.join(WEB_DIR, "permissions.html"), "text/html; charset=utf-8")
-        if path == "/assets/style.css":
-            return self._send_file(os.path.join(WEB_DIR, "style.css"), "text/css; charset=utf-8")
-        if path == "/assets/icon.png":
-            return self._send_file(os.path.join(WEB_DIR, "icon.png"), "image/png")
-        if path == "/assets/app.js":
-            return self._send_file(os.path.join(WEB_DIR, "app.js"), "text/javascript; charset=utf-8")
-        if path == "/assets/settings.js":
-            return self._send_file(os.path.join(WEB_DIR, "settings.js"), "text/javascript; charset=utf-8")
+        asset_info = _asset_info(path)
+        if asset_info:
+            filename, content_type = asset_info
+            return self._send_file(os.path.join(WEB_DIR, filename), content_type)
 
-        if path == "/api/releases":
-            return self._send_json(read_releases("releases_complete"))
-        if path == "/api/releases/raw":
-            return self._send_json(read_releases("releases"))
-        if path == "/api/nzbs":
-            return self._send_json(read_nzbs())
-        if path == "/api/status":
-            return self._send_json(read_status())
-        if path == "/api/status/stream":
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/event-stream")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "keep-alive")
-            self.end_headers()
-            try:
-                while True:
-                    payload = json.dumps(read_status())
-                    self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
-                    self.wfile.flush()
-                    time.sleep(2)
-            except (BrokenPipeError, ConnectionResetError):
-                return
-        if path == "/api/nzb/file":
-            query = parse_qs(parsed.query)
-            key = (query.get("key") or [None])[0]
-            if not key:
-                return self._send_json({"ok": False, "error": "Missing key"}, HTTPStatus.BAD_REQUEST)
-            name, payload, path_info = read_nzb_payload(key)
-            if not name and not payload and not path_info:
-                return self._send_json({"ok": False, "error": "Not found"}, HTTPStatus.NOT_FOUND)
-            filename = name or "release"
-            if not filename.lower().endswith(".nzb"):
-                filename = f"{filename}.nzb"
-            if payload is not None:
-                return self._send_bytes(payload, "application/x-nzb", filename)
-            if path_info and os.path.exists(path_info):
-                with open(path_info, "rb") as handle:
-                    data = handle.read()
-                return self._send_bytes(data, "application/x-nzb", filename)
-            return self._send_json({"ok": False, "error": "Missing payload"}, HTTPStatus.NOT_FOUND)
-        if path == "/api/groups":
-            return self._send_json(read_json(GROUPS_PATH, []))
-        if path == "/api/settings":
-            return self._send_json(self._settings_payload())
-
-        return self.send_error(HTTPStatus.NOT_FOUND)
+        match path:
+            case "/":
+                return self._send_file(os.path.join(WEB_DIR, "index.html"), "text/html; charset=utf-8")
+            case "/settings":
+                return self._send_file(os.path.join(WEB_DIR, "settings.html"), "text/html; charset=utf-8")
+            case "/permissions":
+                return self._send_file(os.path.join(WEB_DIR, "permissions.html"), "text/html; charset=utf-8")
+            case "/api/releases":
+                return self._send_json(read_releases("releases_complete"))
+            case "/api/releases/raw":
+                return self._send_json(read_releases("releases"))
+            case "/api/nzbs":
+                return self._send_json(read_nzbs())
+            case "/api/status":
+                return self._send_json(read_status())
+            case "/api/status/stream":
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.end_headers()
+                try:
+                    while True:
+                        payload = json.dumps(read_status())
+                        self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+                        self.wfile.flush()
+                        time.sleep(2)
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+            case "/api/nzb/file":
+                query = parse_qs(parsed.query)
+                key = (query.get("key") or [None])[0]
+                if not key:
+                    return self._send_json({"ok": False, "error": "Missing key"}, HTTPStatus.BAD_REQUEST)
+                name, payload, path_info = read_nzb_payload(key)
+                if not name and not payload and not path_info:
+                    return self._send_json({"ok": False, "error": "Not found"}, HTTPStatus.NOT_FOUND)
+                filename = name or "release"
+                if not filename.lower().endswith(".nzb"):
+                    filename = f"{filename}.nzb"
+                if payload is not None:
+                    return self._send_bytes(payload, "application/x-nzb", filename)
+                if path_info and os.path.exists(path_info):
+                    with open(path_info, "rb") as handle:
+                        data = handle.read()
+                    return self._send_bytes(data, "application/x-nzb", filename)
+                return self._send_json({"ok": False, "error": "Missing payload"}, HTTPStatus.NOT_FOUND)
+            case "/api/groups":
+                return self._send_json(read_json(GROUPS_PATH, []))
+            case "/api/settings":
+                return self._send_json(self._settings_payload())
+            case _:
+                return self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        if path == "/api/settings":
-            raw = self._read_body()
-            try:
-                payload = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
-                return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
+        match path:
+            case "/api/settings":
+                raw = self._read_body()
+                try:
+                    payload = json.loads(raw.decode("utf-8") or "{}")
+                except json.JSONDecodeError:
+                    return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
 
-            settings = load_settings()
-            clear_password = bool(payload.get("clear_password"))
-            if clear_password:
-                settings.pop("NNTP_PASS", None)
+                settings = load_settings()
+                clear_password = bool(payload.get("clear_password"))
+                if clear_password:
+                    settings.pop("NNTP_PASS", None)
 
-            if "NNTP_PASS" in payload and payload.get("NNTP_PASS"):
-                settings["NNTP_PASS"] = str(payload.get("NNTP_PASS")).strip()
+                if "NNTP_PASS" in payload and payload.get("NNTP_PASS"):
+                    settings["NNTP_PASS"] = str(payload.get("NNTP_PASS")).strip()
 
-            if "TRICERAPOST_SAVE_NZBS" in payload:
-                settings["TRICERAPOST_SAVE_NZBS"] = self._coerce_bool(
-                    payload.get("TRICERAPOST_SAVE_NZBS"),
-                    True,
-                )
-            if "TRICERAPOST_DOWNLOAD_STATION_ENABLED" in payload:
-                settings["TRICERAPOST_DOWNLOAD_STATION_ENABLED"] = self._coerce_bool(
-                    payload.get("TRICERAPOST_DOWNLOAD_STATION_ENABLED"),
-                    True,
-                )
-            if "TRICERAPOST_NZB_DIR" in payload:
-                nzb_dir = str(payload.get("TRICERAPOST_NZB_DIR") or "").strip()
-                if nzb_dir:
-                    settings["TRICERAPOST_NZB_DIR"] = nzb_dir
-                else:
-                    settings.pop("TRICERAPOST_NZB_DIR", None)
-
-            for key in ("NNTP_HOST", "NNTP_USER", "NNTP_GROUPS"):
-                if key in payload:
-                    value = payload.get(key)
-                    if value is None or str(value).strip() == "":
-                        settings.pop(key, None)
+                if "TRICERAPOST_SAVE_NZBS" in payload:
+                    settings["TRICERAPOST_SAVE_NZBS"] = self._coerce_bool(
+                        payload.get("TRICERAPOST_SAVE_NZBS"),
+                        True,
+                    )
+                if "TRICERAPOST_DOWNLOAD_STATION_ENABLED" in payload:
+                    settings["TRICERAPOST_DOWNLOAD_STATION_ENABLED"] = self._coerce_bool(
+                        payload.get("TRICERAPOST_DOWNLOAD_STATION_ENABLED"),
+                        True,
+                    )
+                if "TRICERAPOST_NZB_DIR" in payload:
+                    nzb_dir = str(payload.get("TRICERAPOST_NZB_DIR") or "").strip()
+                    if nzb_dir:
+                        settings["TRICERAPOST_NZB_DIR"] = nzb_dir
                     else:
-                        settings[key] = str(value).strip()
+                        settings.pop("TRICERAPOST_NZB_DIR", None)
 
-            for key, default in (
-                ("NNTP_PORT", 119),
-                ("NNTP_LOOKBACK", 2000),
-                ("TRICERAPOST_SCHEDULER_INTERVAL", 0),
-            ):
-                if key in payload:
-                    value = payload.get(key)
-                    if value is None or value == "":
-                        settings.pop(key, None)
-                    else:
-                        settings[key] = self._coerce_int(value, default)
+                for key in ("NNTP_HOST", "NNTP_USER", "NNTP_GROUPS"):
+                    if key in payload:
+                        value = payload.get(key)
+                        if value is None or str(value).strip() == "":
+                            settings.pop(key, None)
+                        else:
+                            settings[key] = str(value).strip()
 
-            if "NNTP_SSL" in payload:
-                settings["NNTP_SSL"] = self._coerce_bool(payload.get("NNTP_SSL"), False)
+                for key, default in (
+                    ("NNTP_PORT", 119),
+                    ("NNTP_LOOKBACK", 2000),
+                    ("TRICERAPOST_SCHEDULER_INTERVAL", 0),
+                ):
+                    if key in payload:
+                        value = payload.get(key)
+                        if value is None or value == "":
+                            settings.pop(key, None)
+                        else:
+                            settings[key] = self._coerce_int(value, default)
 
-            save_settings(settings)
-            return self._send_json({"ok": True, "settings": self._settings_payload()})
-        if path == "/api/nzb/save_all":
-            count = save_all_nzbs_to_disk(get_setting("TRICERAPOST_NZB_DIR") or None)
-            return self._send_json({"ok": True, "saved": count})
-        if path == "/api/admin/clear_db":
-            raw = self._read_body()
-            try:
-                payload = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
-                return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
-            if not payload.get("confirm"):
-                return self._send_json({"ok": False, "error": "Confirmation required"}, HTTPStatus.BAD_REQUEST)
-            result = clear_db()
-            return self._send_json({"ok": True, **result})
+                if "NNTP_SSL" in payload:
+                    settings["NNTP_SSL"] = self._coerce_bool(payload.get("NNTP_SSL"), False)
 
-        return self.send_error(HTTPStatus.NOT_FOUND)
+                save_settings(settings)
+                return self._send_json({"ok": True, "settings": self._settings_payload()})
+            case "/api/nzb/save_all":
+                count = save_all_nzbs_to_disk(get_setting("TRICERAPOST_NZB_DIR") or None)
+                return self._send_json({"ok": True, "saved": count})
+            case "/api/admin/clear_db":
+                raw = self._read_body()
+                try:
+                    payload = json.loads(raw.decode("utf-8") or "{}")
+                except json.JSONDecodeError:
+                    return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
+                if not payload.get("confirm"):
+                    return self._send_json({"ok": False, "error": "Confirmation required"}, HTTPStatus.BAD_REQUEST)
+                result = clear_db()
+                return self._send_json({"ok": True, **result})
+            case _:
+                return self.send_error(HTTPStatus.NOT_FOUND)
 
     def log_message(self, format, *args):
         logging.getLogger("tricerapost.http").info(

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3.13
+from __future__ import annotations
 import socket
 import ssl
-from typing import Dict, List, Tuple
+
+type NNTPGroup = dict[str, str]
+type NNTPOverview = dict[str, str]
+type NNTPOverviewEntry = tuple[int, NNTPOverview]
 
 
 class NNTPError(Exception):
@@ -50,17 +54,17 @@ class NNTPClient:
             raise NNTPError(f"Invalid response: {line}")
         return line
 
-    def _expect(self, ok_prefixes: Tuple[str, ...]) -> str:
+    def _expect(self, ok_prefixes: tuple[str, ...]) -> str:
         line = self._read_status()
         if not line.startswith(ok_prefixes):
             raise NNTPError(line)
         return line
 
-    def command(self, line: str, ok_prefixes: Tuple[str, ...] = ("2", "3")) -> str:
+    def command(self, line: str, ok_prefixes: tuple[str, ...] = ("2", "3")) -> str:
         self._write(line)
         return self._expect(ok_prefixes)
 
-    def _read_multiline(self) -> List[str]:
+    def _read_multiline(self) -> list[str]:
         lines = []
         while True:
             line = self._readline()
@@ -84,7 +88,7 @@ class NNTPClient:
         if password:
             self.command(f"AUTHINFO PASS {password}", ok_prefixes=("2",))
 
-    def list(self) -> List[Dict[str, str]]:
+    def list(self) -> list[NNTPGroup]:
         self.command("LIST", ok_prefixes=("2",))
         lines = self._read_multiline()
         groups = []
@@ -105,7 +109,7 @@ class NNTPClient:
             )
         return groups
 
-    def group(self, group: str) -> Tuple[int, int, int, str]:
+    def group(self, group: str) -> tuple[int, int, int, str]:
         line = self.command(f"GROUP {group}", ok_prefixes=("2",))
         # 211 count first last group
         parts = line.split()
@@ -115,7 +119,7 @@ class NNTPClient:
         name = parts[4] if len(parts) > 4 else group
         return count, first, last, name
 
-    def xover(self, start: int, end: int) -> List[Tuple[int, Dict[str, str]]]:
+    def xover(self, start: int, end: int) -> list[NNTPOverviewEntry]:
         self.command(f"XOVER {start}-{end}", ok_prefixes=("2",))
         lines = self._read_multiline()
         results = []
@@ -136,11 +140,11 @@ class NNTPClient:
             results.append((art_num, overview))
         return results
 
-    def body(self, article) -> List[str]:
+    def body(self, article) -> list[str]:
         self.command(f"BODY {article}", ok_prefixes=("2",))
         return self._read_multiline()
 
-    def article(self, article) -> List[str]:
+    def article(self, article) -> list[str]:
         self.command(f"ARTICLE {article}", ok_prefixes=("2",))
         return self._read_multiline()
 
