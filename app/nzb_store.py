@@ -6,10 +6,10 @@ import re
 import sqlite3
 from typing import Optional
 
-from nntp_client import NNTPClient
-from services.db import get_nzb_db, get_nzb_db_readonly, init_nzb_db
-from services.ingest import load_env
-from services.settings import get_bool_setting, get_int_setting, get_setting
+from app.nntp_client import NNTPClient
+from app.db import get_nzb_db, get_nzb_db_readonly, init_nzb_db
+from app.ingest import load_env
+from app.settings import get_bool_setting, get_int_setting, get_setting
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_NZB_DIR = os.path.join(BASE_DIR, "nzbs")

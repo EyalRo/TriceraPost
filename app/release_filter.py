@@ -4,15 +4,15 @@ import json
 import re
 from typing import Dict, List, Optional
 
-from services.db import (
+from app.db import (
     get_complete_db,
     get_ingest_db_readonly,
     get_releases_db_readonly,
     init_complete_db,
 )
-from services.nzb_store import find_nzb_by_release, store_nzb_invalid, store_nzb_payload, verify_message_ids
-from services.nzb_utils import build_nzb_xml
-from services.release_utils import normalize_subject, parse_part
+from app.nzb_store import find_nzb_by_release, store_nzb_invalid, store_nzb_payload, verify_message_ids
+from app.nzb_utils import build_nzb_xml
+from app.release_utils import normalize_subject, parse_part
 
 QUALITY_RE = re.compile(r"\b(2160p|1080p|720p|576p|480p)\b", re.IGNORECASE)
 SOURCE_RE = re.compile(r"\b(bluray|bdrip|brrip|web[-_. ]?dl|webrip|hdtv|dvd|dvdrip)\b", re.IGNORECASE)

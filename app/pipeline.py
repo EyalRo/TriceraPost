@@ -11,10 +11,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from nntp_client import NNTPClient
-from release_filter import main as filter_main
-from services.aggregate import build_releases
-from services.ingest import (
+from app.nntp_client import NNTPClient
+from app.release_filter import main as filter_main
+from app.aggregate import build_releases
+from app.ingest import (
     append_record,
     load_env,
     load_state,
@@ -22,11 +22,11 @@ from services.ingest import (
     parse_overview,
     save_state,
 )
-from services.nzb_store import store_nzb_invalid, store_nzb_payload, verify_message_ids
-from services.nzb_utils import build_nzb_payload, parse_nzb_segments
-from services.release_utils import NZB_RE, parse_nzb, strip_article_headers
-from services.settings import get_bool_setting, get_int_setting, get_setting
-from services.db import get_ingest_db, get_state_db, init_ingest_db, init_state_db
+from app.nzb_store import store_nzb_invalid, store_nzb_payload, verify_message_ids
+from app.nzb_utils import build_nzb_payload, parse_nzb_segments
+from app.release_utils import NZB_RE, parse_nzb, strip_article_headers
+from app.settings import get_bool_setting, get_int_setting, get_setting
+from app.db import get_ingest_db, get_state_db, init_ingest_db, init_state_db
 
 
 def _fetch_nzb_body(client: NNTPClient, group: str, target: str) -> Optional[list[str]]:

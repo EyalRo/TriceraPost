@@ -9,9 +9,9 @@
 
 ## Project Layout
 
-- `services/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
-- `server.py`: local API + UI.
-- `list_groups.py`: dump NNTP group listings to JSON/TSV.
+- `app/pipeline.py`: single-process pipeline (scan → ingest → aggregate → filter).
+- `gui/server.py`: local API + UI.
+- `cli/list_groups.py`: dump NNTP group listings to JSON/TSV.
 - `data/`: SQLite storage (split per table unless `TRICERAPOST_DB_PATH` is set).
 - Default scan uses groups from `groups.json` whose names include `bin`/`binary`.
 - `nzbs/`: stored NZB files (found or generated).
@@ -35,7 +35,12 @@
 ## Commands
 
 ```
-python3 list_groups.py --output groups.json
-python3 nntp_search.py
-python3 tricerapost.py
+python3 cli/list_groups.py --output groups.json
+python3 cli/nntp_search.py
+python3 cli/tricerapost.py
 ```
+
+## Information Sources
+
+- Roc programming language docs: https://www.roc-lang.org/docs
+- NNTP definition (RFC 3977): https://www.rfc-editor.org/rfc/rfc3977

@@ -10,7 +10,11 @@ import tty
 import termios
 from typing import Optional
 
-from services.db import (
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+from app.db import (
     COMPLETE_DB_PATH,
     INGEST_DB_PATH,
     NZB_DB_PATH,
@@ -22,16 +26,16 @@ from services.db import (
     get_releases_db_readonly,
     get_state_db_readonly,
 )
-from services.ingest import load_env
-from services.nzb_store import save_all_nzbs_to_disk
-from services.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
+from app.ingest import load_env
+from app.nzb_store import save_all_nzbs_to_disk
+from app.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
-GROUPS_PATH = os.path.join(BASE_DIR, "groups.json")
+GROUPS_PATH = os.path.join(ROOT_DIR, "groups.json")
 
 
 def read_json(path, default):

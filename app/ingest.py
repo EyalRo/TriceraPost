@@ -10,15 +10,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from nntp_client import NNTPClient
-from services.db import (
+from app.nntp_client import NNTPClient
+from app.db import (
     get_ingest_db,
     get_state_db,
     init_ingest_db,
     init_state_db,
 )
-from services.release_utils import NZB_RE, parse_nzb, strip_article_headers
-from services.settings import get_bool_setting, get_int_setting, get_setting
+from app.release_utils import NZB_RE, parse_nzb, strip_article_headers
+from app.settings import get_bool_setting, get_int_setting, get_setting
 
 
 def load_env(path: str = ".env") -> None:

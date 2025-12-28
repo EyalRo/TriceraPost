@@ -2,7 +2,7 @@
 import xml.etree.ElementTree as ET
 from typing import Optional
 
-from services.release_utils import NZB_HINT_RE, decode_yenc
+from app.release_utils import NZB_HINT_RE, decode_yenc
 
 
 def build_nzb_payload(lines: list[str]) -> Optional[bytes]:

@@ -3,14 +3,19 @@ import argparse
 import json
 import os
 import re
+import sys
 import time
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional, Tuple
 
-from nntp_client import NNTPClient
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
-STATE_PATH = os.path.join("data", "state.json")
-RELEASES_PATH = os.path.join("data", "releases.json")
+from app.nntp_client import NNTPClient
+
+STATE_PATH = os.path.join(ROOT_DIR, "data", "state.json")
+RELEASES_PATH = os.path.join(ROOT_DIR, "data", "releases.json")
 
 PART_RE = re.compile(r"(?:\(|\[)?\s*(\d{1,4})\s*/\s*(\d{1,4})\s*(?:\)|\])")
 PART_FILE_RE = re.compile(r"\.part\d{1,4}\.[^\s\"']+", re.IGNORECASE)

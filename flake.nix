@@ -16,9 +16,9 @@
           python3Packages.pip
           go
           nodejs
-          (roc.overrideAttrs (_: { doCheck = false; }))
           sqlite
           nzbget
+          zig
         ];
       };
     };

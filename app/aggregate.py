@@ -8,12 +8,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from services.db import (
+from app.db import (
     get_ingest_db_readonly,
     get_releases_db,
     init_releases_db,
 )
-from services.release_utils import extract_filename, format_bytes, normalize_subject, parse_part
+from app.release_utils import extract_filename, format_bytes, normalize_subject, parse_part
 
 
 def iter_records(conn):
