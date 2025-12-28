@@ -3,7 +3,13 @@ import struct
 from typing import Optional
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_WASM_PATH = os.path.join(BASE_DIR, "wasm", "pipeline.wasm")
+DEFAULT_WASM_PATH = os.path.join(
+    BASE_DIR,
+    "parsers",
+    "overview",
+    "wasm",
+    "pipeline.wasm",
+)
 
 _ENTRY_SIZE = 8
 _FLAG_NZB = 1

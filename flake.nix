@@ -11,7 +11,7 @@
       pkgs = import nixpkgs { inherit system; };
       lib = pkgs.lib;
       src = ./.;
-      hasWasm = builtins.pathExists (toString src + "/wasm/build.sh");
+      hasWasm = builtins.pathExists (toString src + "/parsers/overview/build.sh");
     in {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
@@ -65,8 +65,8 @@ PY
           chmod -R u+w source
           cd source
           export ZIG_GLOBAL_CACHE_DIR="${TMPDIR:-/tmp}/zig-cache"
-          ${pkgs.bash}/bin/bash ./wasm/build.sh
-          test -f wasm/pipeline.wasm
+          ${pkgs.bash}/bin/bash ./parsers/overview/build.sh
+          test -f parsers/overview/wasm/pipeline.wasm
           mkdir -p "$out"
         '';
       };

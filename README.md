@@ -74,7 +74,7 @@ Base URL: `http://127.0.0.1:8080`
 
 - SQLite state is split into per-table files (state/ingest/releases/complete/nzbs) unless `TRICERAPOST_DB_PATH` is set to a single file or `TRICERAPOST_DB_IN_MEMORY=1` is enabled.
 - Saved NZB files live in `nzbs/`. Invalid NZBs are tracked in SQLite but not written to disk.
-- WASM acceleration is enabled automatically when `wasm/pipeline.wasm` exists and `wasmtime` is installed (the Python package, not just the CLI). Set `TRICERAPOST_DISABLE_WASM=1` to force Python parsing. Use `TRICERAPOST_PIPELINE_WASM=/path/to/pipeline.wasm` to override the module path.
+- WASM acceleration is enabled automatically when `parsers/overview/wasm/pipeline.wasm` exists and `wasmtime` is installed (the Python package, not just the CLI). Set `TRICERAPOST_DISABLE_WASM=1` to force Python parsing. Use `TRICERAPOST_PIPELINE_WASM=/path/to/pipeline.wasm` to override the module path.
 
 ## Build and Test
 
@@ -93,7 +93,7 @@ python3.13 -m unittest tests.test_pipeline
 Compile the WASM module:
 
 ```
-./wasm/build.sh
+./parsers/overview/build.sh
 ```
 
 ## WASM Build (Zig)
@@ -101,12 +101,12 @@ Compile the WASM module:
 Build the Zig WASM module for overview parsing:
 
 ```
-./wasm/build.sh
+./parsers/overview/build.sh
 ```
 
 If you use Nix:
 
 ```
 nix develop
-./wasm/build.sh
+./parsers/overview/build.sh
 ```

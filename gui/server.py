@@ -29,7 +29,9 @@ from app.db import (
 from app.ingest import load_env
 from app.logging_setup import configure_logging
 from app.nzb_store import save_all_nzbs_to_disk
-from app.settings import get_bool_setting, get_int_setting, get_setting, load_settings, save_settings
+from app.settings import get_setting
+from gui.http_assets import asset_info
+from gui.settings_api import apply_settings_payload, build_settings_payload
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -38,8 +40,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 GROUPS_PATH = os.path.join(ROOT_DIR, "groups.json")
 LOGGER = logging.getLogger("tricerapost")
-type SettingsPayload = dict[str, object]
-type AssetInfo = tuple[str, str]
 
 
 def read_json(path, default):
@@ -47,20 +47,6 @@ def read_json(path, default):
         return default
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
-
-
-def _asset_info(path: str) -> AssetInfo | None:
-    match path:
-        case "/assets/style.css":
-            return ("style.css", "text/css; charset=utf-8")
-        case "/assets/icon.png":
-            return ("icon.png", "image/png")
-        case "/assets/app.js":
-            return ("app.js", "text/javascript; charset=utf-8")
-        case "/assets/settings.js":
-            return ("settings.js", "text/javascript; charset=utf-8")
-        case _:
-            return None
 
 
 def read_releases(table):
@@ -277,38 +263,7 @@ def load_binary_groups() -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _coerce_bool(self, value, default=False):
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return value
-        return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
-    def _coerce_int(self, value, default):
-        if value is None:
-            return default
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return default
-
-    def _settings_payload(self) -> SettingsPayload:
-        return {
-            "NNTP_HOST": get_setting("NNTP_HOST", ""),
-            "NNTP_PORT": get_int_setting("NNTP_PORT", 119),
-            "NNTP_SSL": get_bool_setting("NNTP_SSL", False),
-            "NNTP_USER": get_setting("NNTP_USER", ""),
-            "NNTP_PASS_SET": bool(get_setting("NNTP_PASS")),
-            "NNTP_LOOKBACK": get_int_setting("NNTP_LOOKBACK", 2000),
-            "NNTP_GROUPS": get_setting("NNTP_GROUPS", ""),
-            "TRICERAPOST_SCHEDULER_INTERVAL": get_int_setting("TRICERAPOST_SCHEDULER_INTERVAL", 0),
-            "TRICERAPOST_SAVE_NZBS": get_bool_setting("TRICERAPOST_SAVE_NZBS", True),
-            "TRICERAPOST_NZB_DIR": get_setting("TRICERAPOST_NZB_DIR", ""),
-            "TRICERAPOST_DOWNLOAD_STATION_ENABLED": get_bool_setting(
-                "TRICERAPOST_DOWNLOAD_STATION_ENABLED",
-                True,
-            ),
-        }
     def _send_json(self, payload, status=HTTPStatus.OK):
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -368,9 +323,9 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        asset_info = _asset_info(path)
-        if asset_info:
-            filename, content_type = asset_info
+        asset_info_result = asset_info(path)
+        if asset_info_result:
+            filename, content_type = asset_info_result
             return self._send_file(os.path.join(WEB_DIR, filename), content_type)
 
         match path:
@@ -423,7 +378,7 @@ class Handler(BaseHTTPRequestHandler):
             case "/api/groups":
                 return self._send_json(read_json(GROUPS_PATH, []))
             case "/api/settings":
-                return self._send_json(self._settings_payload())
+                return self._send_json(build_settings_payload())
             case _:
                 return self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -438,57 +393,8 @@ class Handler(BaseHTTPRequestHandler):
                     payload = json.loads(raw.decode("utf-8") or "{}")
                 except json.JSONDecodeError:
                     return self._send_json({"ok": False, "error": "Invalid JSON"}, HTTPStatus.BAD_REQUEST)
-
-                settings = load_settings()
-                clear_password = bool(payload.get("clear_password"))
-                if clear_password:
-                    settings.pop("NNTP_PASS", None)
-
-                if "NNTP_PASS" in payload and payload.get("NNTP_PASS"):
-                    settings["NNTP_PASS"] = str(payload.get("NNTP_PASS")).strip()
-
-                if "TRICERAPOST_SAVE_NZBS" in payload:
-                    settings["TRICERAPOST_SAVE_NZBS"] = self._coerce_bool(
-                        payload.get("TRICERAPOST_SAVE_NZBS"),
-                        True,
-                    )
-                if "TRICERAPOST_DOWNLOAD_STATION_ENABLED" in payload:
-                    settings["TRICERAPOST_DOWNLOAD_STATION_ENABLED"] = self._coerce_bool(
-                        payload.get("TRICERAPOST_DOWNLOAD_STATION_ENABLED"),
-                        True,
-                    )
-                if "TRICERAPOST_NZB_DIR" in payload:
-                    nzb_dir = str(payload.get("TRICERAPOST_NZB_DIR") or "").strip()
-                    if nzb_dir:
-                        settings["TRICERAPOST_NZB_DIR"] = nzb_dir
-                    else:
-                        settings.pop("TRICERAPOST_NZB_DIR", None)
-
-                for key in ("NNTP_HOST", "NNTP_USER", "NNTP_GROUPS"):
-                    if key in payload:
-                        value = payload.get(key)
-                        if value is None or str(value).strip() == "":
-                            settings.pop(key, None)
-                        else:
-                            settings[key] = str(value).strip()
-
-                for key, default in (
-                    ("NNTP_PORT", 119),
-                    ("NNTP_LOOKBACK", 2000),
-                    ("TRICERAPOST_SCHEDULER_INTERVAL", 0),
-                ):
-                    if key in payload:
-                        value = payload.get(key)
-                        if value is None or value == "":
-                            settings.pop(key, None)
-                        else:
-                            settings[key] = self._coerce_int(value, default)
-
-                if "NNTP_SSL" in payload:
-                    settings["NNTP_SSL"] = self._coerce_bool(payload.get("NNTP_SSL"), False)
-
-                save_settings(settings)
-                return self._send_json({"ok": True, "settings": self._settings_payload()})
+                settings_payload = apply_settings_payload(payload)
+                return self._send_json({"ok": True, "settings": settings_payload})
             case "/api/nzb/save_all":
                 count = save_all_nzbs_to_disk(get_setting("TRICERAPOST_NZB_DIR") or None)
                 return self._send_json({"ok": True, "saved": count})
